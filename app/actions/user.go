@@ -161,7 +161,7 @@ func (action *ChangeUserEmail) GetKind() enum.EmailVerificationKind {
 
 // SetUserCustomFields is the action to set custom fields on a user
 type SetUserCustomFields struct {
-	UserID       int                    `json:"userID"`
+	UserID       int                    `json:"-"`
 	CustomFields map[string]interface{} `json:"customFields"`
 }
 
@@ -190,7 +190,7 @@ func (action *SetUserCustomFields) Validate(ctx context.Context, user *entity.Us
 
 	for key, value := range action.CustomFields {
 		if len(key) > 100 {
-			result.AddFieldFailure("customFields", "Custom field key must have fewer than 100 characters.")
+			result.AddFieldFailure("customFields", "Custom field key must have 100 characters or fewer.")
 			return result
 		}
 		switch value.(type) {

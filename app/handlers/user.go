@@ -90,7 +90,7 @@ func SetUserCustomFields() web.HandlerFunc {
 		}
 
 		if err := bus.Dispatch(c, &cmd.SetUserCustomFields{
-			UserID:       action.UserID,
+			UserID:       userID,
 			CustomFields: action.CustomFields,
 		}); err != nil {
 			return c.Failure(err)

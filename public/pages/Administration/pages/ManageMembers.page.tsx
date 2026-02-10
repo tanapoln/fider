@@ -32,7 +32,7 @@ interface CustomFieldsModalProps {
   user: User
   isOpen: boolean
   onClose: () => void
-  onSave: (user: User, fields: Record<string, string | number | boolean | null>) => Promise<void>
+  onSave: (user: User, fields: Record<string, string | number | boolean | null>) => Promise<boolean>
 }
 
 const parseFieldValue = (value: string): string | number | boolean | null => {
@@ -96,7 +96,7 @@ const CustomFieldsModal = (props: CustomFieldsModalProps) => {
         return
       }
       if (field.key.length > 100) {
-        setError("Field key must have fewer than 100 characters.")
+        setError("Field key must have 100 characters or fewer.")
         return
       }
       if (result[field.key.trim()] !== undefined) {
@@ -105,7 +105,10 @@ const CustomFieldsModal = (props: CustomFieldsModalProps) => {
       }
       result[field.key.trim()] = parseFieldValue(field.value)
     }
-    await props.onSave(props.user, result)
+    const saved = await props.onSave(props.user, result)
+    if (!saved) {
+      setError("Unable to save custom fields. Please check your input and try again.")
+    }
   }
 
   return (
@@ -375,13 +378,15 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
   )
 
   const handleSaveCustomFields = useCallback(
-    async (user: User, customFields: Record<string, string | number | boolean | null>) => {
+    async (user: User, customFields: Record<string, string | number | boolean | null>): Promise<boolean> => {
       const result = await actions.setUserCustomFields(user.id, customFields)
       if (result.ok) {
         const updatedUsers = users.map((u) => (u.id === user.id ? { ...u, customFields } : u))
         setUsers(updatedUsers)
         setCustomFieldsUser(null)
+        return true
       }
+      return false
     },
     [users]
   )
