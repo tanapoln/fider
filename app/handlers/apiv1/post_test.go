@@ -662,6 +662,80 @@ func TestRemoveVoteHandler(t *testing.T) {
 	Expect(removeVote.User).Equals(mock.AryaStark)
 }
 
+func TestAddVoteOnBehalfHandler(t *testing.T) {
+	RegisterT(t)
+
+	post := &entity.Post{ID: 1, Number: 1, Title: "The Post #1", Description: "The Description #1"}
+	bus.AddHandler(func(ctx context.Context, q *query.GetPostByNumber) error {
+		q.Result = post
+		return nil
+	})
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
+		q.Result = mock.AryaStark
+		return nil
+	})
+
+	var addVote *cmd.AddVote
+	bus.AddHandler(func(ctx context.Context, c *cmd.AddVote) error {
+		addVote = c
+		return nil
+	})
+
+	code, _ := mock.NewServer().
+		OnTenant(mock.DemoTenant).
+		AsUser(mock.JonSnow).
+		AddParam("number", post.Number).
+		AddParam("userID", mock.AryaStark.ID).
+		Execute(apiv1.AddVoteOnBehalf())
+
+	Expect(code).Equals(http.StatusOK)
+	Expect(addVote.Post).Equals(post)
+	Expect(addVote.User).Equals(mock.AryaStark)
+}
+
+func TestAddVoteOnBehalfHandler_InvalidPost(t *testing.T) {
+	RegisterT(t)
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetPostByNumber) error {
+		q.Result = nil
+		return nil
+	})
+
+	code, _ := mock.NewServer().
+		OnTenant(mock.DemoTenant).
+		AsUser(mock.JonSnow).
+		AddParam("number", 999).
+		AddParam("userID", mock.AryaStark.ID).
+		Execute(apiv1.AddVoteOnBehalf())
+
+	Expect(code).Equals(http.StatusNotFound)
+}
+
+func TestAddVoteOnBehalfHandler_InvalidUser(t *testing.T) {
+	RegisterT(t)
+
+	post := &entity.Post{ID: 1, Number: 1, Title: "The Post #1", Description: "The Description #1"}
+	bus.AddHandler(func(ctx context.Context, q *query.GetPostByNumber) error {
+		q.Result = post
+		return nil
+	})
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
+		q.Result = nil
+		return nil
+	})
+
+	code, _ := mock.NewServer().
+		OnTenant(mock.DemoTenant).
+		AsUser(mock.JonSnow).
+		AddParam("number", post.Number).
+		AddParam("userID", 999).
+		Execute(apiv1.AddVoteOnBehalf())
+
+	Expect(code).Equals(http.StatusNotFound)
+}
+
 func TestDeletePostHandler_Authorized(t *testing.T) {
 	RegisterT(t)
 

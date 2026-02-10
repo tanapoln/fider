@@ -429,6 +429,46 @@ func RemoveVote() web.HandlerFunc {
 	}
 }
 
+// AddVoteOnBehalf adds a vote on behalf of another user (staff only)
+func AddVoteOnBehalf() web.HandlerFunc {
+	return func(c *web.Context) error {
+		number, err := c.ParamAsInt("number")
+		if err != nil {
+			return c.NotFound()
+		}
+
+		userID, err := c.ParamAsInt("userID")
+		if err != nil {
+			return c.NotFound()
+		}
+
+		getPost := &query.GetPostByNumber{Number: number}
+		if err := bus.Dispatch(c, getPost); err != nil {
+			return c.Failure(err)
+		}
+
+		if getPost.Result == nil {
+			return c.NotFound()
+		}
+
+		getUser := &query.GetUserByID{UserID: userID}
+		if err := bus.Dispatch(c, getUser); err != nil {
+			return c.Failure(err)
+		}
+
+		if getUser.Result == nil {
+			return c.NotFound()
+		}
+
+		if err := bus.Dispatch(c, &cmd.AddVote{Post: getPost.Result, User: getUser.Result}); err != nil {
+			return c.Failure(err)
+		}
+
+		metrics.TotalVotes.Inc()
+		return c.Ok(web.Map{})
+	}
+}
+
 func ToggleVote() web.HandlerFunc {
 	return func(c *web.Context) error {
 		number, err := c.ParamAsInt("number")

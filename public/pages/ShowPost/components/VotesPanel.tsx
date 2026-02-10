@@ -2,10 +2,11 @@ import "./VotesPanel.scss"
 
 import React, { useState } from "react"
 import { Post, Vote } from "@fider/models"
-import { Avatar, Icon } from "@fider/components"
+import { Avatar, Button, Icon } from "@fider/components"
 import { Fider } from "@fider/services"
 import { useFider } from "@fider/hooks"
 import { VotesModal } from "./VotesModal"
+import { VoteOnBehalfModal } from "./VoteOnBehalfModal"
 import { VStack } from "@fider/components/layout"
 import { Trans } from "@lingui/react/macro"
 import IconPerson from "@fider/assets/images/heroicons-person.svg"
@@ -21,6 +22,7 @@ const MAX_AVATARS_SHOWN = 12
 export const VotesPanel = (props: VotesPanelProps) => {
   const fider = useFider()
   const [isVotesModalOpen, setIsVotesModalOpen] = useState(false)
+  const [isVoteOnBehalfModalOpen, setIsVoteOnBehalfModalOpen] = useState(false)
   const canShowAll = fider.session.isAuthenticated && Fider.session.user.isCollaborator
 
   const openModal = () => {
@@ -38,6 +40,15 @@ export const VotesPanel = (props: VotesPanelProps) => {
   return (
     <VStack spacing={4} className="c-votes-panel card">
       <VotesModal post={props.post} isOpen={isVotesModalOpen} onClose={closeModal} />
+      <VoteOnBehalfModal
+        post={props.post}
+        isOpen={isVoteOnBehalfModalOpen}
+        onClose={() => setIsVoteOnBehalfModalOpen(false)}
+        onVoted={() => {
+          setIsVoteOnBehalfModalOpen(false)
+          location.reload()
+        }}
+      />
 
       <div className="c-votes-panel__header">
         {!props.hideTitle && (
@@ -69,6 +80,12 @@ export const VotesPanel = (props: VotesPanelProps) => {
         <span className="text-muted">
           <Trans id="label.none">None</Trans>
         </span>
+      )}
+
+      {canShowAll && (
+        <Button variant="secondary" size="small" onClick={() => setIsVoteOnBehalfModalOpen(true)}>
+          <Trans id="action.voteonbehalf">Vote on behalf</Trans>
+        </Button>
       )}
     </VStack>
   )
