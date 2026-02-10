@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Post, User, Vote } from "@fider/models"
 import { Modal, Button, Input, Avatar, UserName, Loader } from "@fider/components"
 import { actions, http } from "@fider/services"
@@ -27,6 +27,7 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
   const [isSearching, setIsSearching] = useState(false)
   const [votingUserID, setVotingUserID] = useState<number | null>(null)
   const [votedUserIDs, setVotedUserIDs] = useState<Set<number>>(new Set())
+  const searchRequestRef = useRef(0)
 
   useEffect(() => {
     if (props.isOpen) {
@@ -42,11 +43,16 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
     setQuery(q)
     if (q.length < 2) {
       setUsers([])
+      setIsSearching(false)
       return
     }
 
+    const requestId = ++searchRequestRef.current
     setIsSearching(true)
     const result = await http.get<UserSearchResult>(`/api/v1/users?query=${encodeURIComponent(q)}&limit=50`)
+    if (requestId !== searchRequestRef.current) {
+      return
+    }
     if (result.ok) {
       setUsers(result.data.users)
     }

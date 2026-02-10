@@ -698,8 +698,7 @@ func TestAddVoteOnBehalfHandler_InvalidPost(t *testing.T) {
 	RegisterT(t)
 
 	bus.AddHandler(func(ctx context.Context, q *query.GetPostByNumber) error {
-		q.Result = nil
-		return nil
+		return app.ErrNotFound
 	})
 
 	code, _ := mock.NewServer().
@@ -722,8 +721,7 @@ func TestAddVoteOnBehalfHandler_InvalidUser(t *testing.T) {
 	})
 
 	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
-		q.Result = nil
-		return nil
+		return app.ErrNotFound
 	})
 
 	code, _ := mock.NewServer().
