@@ -278,7 +278,7 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
       <Modal.Window isOpen={showAddMemberModal} onClose={handleCloseAddMemberModal} center={false} size="small">
         <Modal.Header>Add New Member</Modal.Header>
         <Modal.Content>
-          <Form error={addMemberError}>
+          <Form error={addMemberError} onSubmit={handleAddMember}>
             <Input field="name" label="Name" placeholder="Enter member name" value={newMemberName} onChange={setNewMemberName} maxLength={100} />
             <p className="text-muted">A random email will be generated for this member automatically.</p>
           </Form>
