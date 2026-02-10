@@ -3,6 +3,7 @@ package apiv1_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/getfider/fider/app"
@@ -187,4 +188,79 @@ func TestCreateUser_NewUser(t *testing.T) {
 	Expect(status).Equals(http.StatusOK)
 	theOtherUserID := query.Int32("id")
 	Expect(theOtherUserID).Equals(userID)
+}
+
+func TestCreateUser_NameOnly_GeneratesRandomEmail(t *testing.T) {
+	RegisterT(t)
+
+	server := mock.NewServer()
+
+	var newUser *entity.User
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByProvider) error {
+		return app.ErrNotFound
+	})
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByEmail) error {
+		return app.ErrNotFound
+	})
+
+	bus.AddHandler(func(ctx context.Context, c *cmd.RegisterUser) error {
+		c.User.ID = 1
+		newUser = c.User
+		return nil
+	})
+
+	status, query := server.
+		AsUser(mock.JonSnow).
+		OnTenant(mock.DemoTenant).
+		ExecutePostAsJSON(apiv1.CreateUser(),
+			`{
+				"name": "Manual User"
+			}`)
+
+	Expect(status).Equals(http.StatusOK)
+	Expect(query.Int32("id")).Equals(1)
+	Expect(newUser.Name).Equals("Manual User")
+	Expect(newUser.Email).IsNotEmpty()
+	Expect(strings.Contains(newUser.Email, "@")).IsTrue()
+	Expect(strings.Contains(newUser.Email, "demo.noreply.fider.io")).IsTrue()
+	Expect(newUser.Role).Equals(enum.RoleVisitor)
+}
+
+func TestCreateUser_NameOnly_WithCNAME_GeneratesRandomEmail(t *testing.T) {
+	RegisterT(t)
+
+	server := mock.NewServer()
+
+	var newUser *entity.User
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByProvider) error {
+		return app.ErrNotFound
+	})
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByEmail) error {
+		return app.ErrNotFound
+	})
+
+	bus.AddHandler(func(ctx context.Context, c *cmd.RegisterUser) error {
+		c.User.ID = 1
+		newUser = c.User
+		return nil
+	})
+
+	status, query := server.
+		AsUser(mock.JonSnow).
+		OnTenant(mock.AvengersTenant).
+		ExecutePostAsJSON(apiv1.CreateUser(),
+			`{
+				"name": "Manual User"
+			}`)
+
+	Expect(status).Equals(http.StatusOK)
+	Expect(query.Int32("id")).Equals(1)
+	Expect(newUser.Name).Equals("Manual User")
+	Expect(newUser.Email).IsNotEmpty()
+	Expect(strings.Contains(newUser.Email, "@feedback.theavengers.com")).IsTrue()
+	Expect(newUser.Role).Equals(enum.RoleVisitor)
 }

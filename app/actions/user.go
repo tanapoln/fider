@@ -22,7 +22,7 @@ type CreateUser struct {
 
 // IsAuthorized returns true if current user is authorized to perform this action
 func (action *CreateUser) IsAuthorized(ctx context.Context, user *entity.User) bool {
-	return user != nil && user.IsAdministrator()
+	return user != nil && (user.IsAdministrator() || user.IsCollaborator())
 }
 
 // Validate if current model is valid
@@ -35,19 +35,15 @@ func (action *CreateUser) Validate(ctx context.Context, user *entity.User) *vali
 		result.AddFieldFailure("name", "Name must have less than 100 characters.")
 	}
 
-	if action.Email == "" && action.Reference == "" {
-		result.AddFieldFailure("", "Either email or reference is required")
-	} else {
-		if action.Email != "" {
-			messages := validate.Email(ctx, action.Email)
-			if len(messages) > 0 {
-				result.AddFieldFailure("email", messages...)
-			}
+	if action.Email != "" {
+		messages := validate.Email(ctx, action.Email)
+		if len(messages) > 0 {
+			result.AddFieldFailure("email", messages...)
 		}
+	}
 
-		if len(action.Reference) > 100 {
-			result.AddFieldFailure("reference", "Reference must have less than 100 characters.")
-		}
+	if len(action.Reference) > 100 {
+		result.AddFieldFailure("reference", "Reference must have less than 100 characters.")
 	}
 
 	return result

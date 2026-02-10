@@ -251,6 +251,7 @@ func routes(r *web.Engine) *web.Engine {
 		staffApi.Use(middlewares.IsAuthorized(enum.RoleCollaborator, enum.RoleAdministrator))
 
 		staffApi.Get("/api/v1/users", apiv1.ListUsers())
+		staffApi.Post("/api/v1/users", apiv1.CreateUser())
 		staffApi.Post("/api/v1/invitations/send", apiv1.SendInvites())
 		staffApi.Post("/api/v1/invitations/sample", apiv1.SendSampleInvite())
 
@@ -267,7 +268,6 @@ func routes(r *web.Engine) *web.Engine {
 		adminApi.Use(middlewares.IsAuthenticated())
 		adminApi.Use(middlewares.IsAuthorized(enum.RoleAdministrator))
 
-		adminApi.Post("/api/v1/users", apiv1.CreateUser())
 		adminApi.Post("/api/v1/tags", apiv1.CreateEditTag())
 		adminApi.Put("/api/v1/tags/:slug", apiv1.CreateEditTag())
 		adminApi.Delete("/api/v1/tags/:slug", apiv1.DeleteTag())

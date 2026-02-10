@@ -19,12 +19,10 @@ func TestCreateUser_InvalidInput(t *testing.T) {
 
 	testCases := []struct {
 		expected []string
-		message  string
 		action   *actions.CreateUser
 	}{
 		{
 			expected: []string{"name"},
-			message:  "Either email or reference is required",
 			action:   &actions.CreateUser{},
 		},
 		{
@@ -47,13 +45,6 @@ func TestCreateUser_InvalidInput(t *testing.T) {
 	for _, testCase := range testCases {
 		result := testCase.action.Validate(context.Background(), nil)
 		ExpectFailed(result, testCase.expected...)
-		if testCase.message != "" {
-			for k, v := range result.Errors {
-				if v.Field == "" {
-					Expect(result.Errors[k].Message).Equals(testCase.message)
-				}
-			}
-		}
 	}
 }
 
@@ -82,12 +73,41 @@ func TestCreateUser_ValidInput(t *testing.T) {
 				Reference: "812747824",
 			},
 		},
+		{
+			action: &actions.CreateUser{
+				Name: "John Snow",
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
 		result := testCase.action.Validate(context.Background(), nil)
 		ExpectSuccess(result)
 	}
+}
+
+func TestCreateUser_CollaboratorAuthorized(t *testing.T) {
+	RegisterT(t)
+
+	collaborator := &entity.User{ID: 1, Role: enum.RoleCollaborator}
+	action := &actions.CreateUser{Name: "New User"}
+	Expect(action.IsAuthorized(context.Background(), collaborator)).IsTrue()
+}
+
+func TestCreateUser_AdminAuthorized(t *testing.T) {
+	RegisterT(t)
+
+	admin := &entity.User{ID: 1, Role: enum.RoleAdministrator}
+	action := &actions.CreateUser{Name: "New User"}
+	Expect(action.IsAuthorized(context.Background(), admin)).IsTrue()
+}
+
+func TestCreateUser_VisitorNotAuthorized(t *testing.T) {
+	RegisterT(t)
+
+	visitor := &entity.User{ID: 1, Role: enum.RoleVisitor}
+	action := &actions.CreateUser{Name: "New User"}
+	Expect(action.IsAuthorized(context.Background(), visitor)).IsFalse()
 }
 
 func TestChangeUserRole_Unauthorized(t *testing.T) {

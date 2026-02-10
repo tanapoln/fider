@@ -101,6 +101,10 @@ export const untrustUser = async (userID: number): Promise<Result> => {
   return await http.delete(`/_api/admin/users/${userID}/trust`)
 }
 
+export const createUser = async (name: string): Promise<Result<{ id: number }>> => {
+  return await http.post<{ id: number }>("/api/v1/users", { name })
+}
+
 export const getOAuthConfig = async (provider: string): Promise<Result<OAuthConfig>> => {
   return await http.get<OAuthConfig>(`/_api/admin/oauth/${provider}`)
 }

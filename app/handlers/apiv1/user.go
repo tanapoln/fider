@@ -1,6 +1,8 @@
 package apiv1
 
 import (
+	"fmt"
+
 	"github.com/getfider/fider/app"
 	"github.com/getfider/fider/app/actions"
 	"github.com/getfider/fider/app/models/cmd"
@@ -9,6 +11,7 @@ import (
 	"github.com/getfider/fider/app/models/query"
 	"github.com/getfider/fider/app/pkg/bus"
 	"github.com/getfider/fider/app/pkg/errors"
+	"github.com/getfider/fider/app/pkg/rand"
 	"github.com/getfider/fider/app/pkg/web"
 )
 
@@ -72,6 +75,16 @@ func CreateUser() web.HandlerFunc {
 		action := new(actions.CreateUser)
 		if result := c.BindTo(action); !result.Ok {
 			return c.HandleValidation(result)
+		}
+
+		// Generate a random email if not provided
+		if action.Email == "" && action.Reference == "" {
+			tenant := c.Tenant()
+			domain := tenant.Subdomain + ".noreply.fider.io"
+			if tenant.CNAME != "" {
+				domain = tenant.CNAME
+			}
+			action.Email = fmt.Sprintf("%s@%s", rand.String(16), domain)
 		}
 
 		var user *entity.User
