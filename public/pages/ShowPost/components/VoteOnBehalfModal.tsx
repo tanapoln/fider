@@ -7,6 +7,7 @@ import IconX from "@fider/assets/images/heroicons-x.svg"
 import { HStack, VStack } from "@fider/components/layout"
 import { i18n } from "@lingui/core"
 import { Trans } from "@lingui/react/macro"
+import { createUser } from "@fider/services/actions"
 
 interface VoteOnBehalfModalProps {
   isOpen: boolean
@@ -72,6 +73,13 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
     searchUsers("")
   }
 
+  const createUserAction = async () => {
+    setIsSearching(true)
+    await createUser(query)
+    setIsSearching(false)
+    searchUsers(query)
+  }
+
   return (
     <Modal.Window isOpen={props.isOpen} center={false} onClose={closeModal}>
       <Modal.Content>
@@ -116,6 +124,11 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
                 No users found matching <strong>{query}</strong>.
               </Trans>
             </p>
+          )}
+          {!isSearching && query.length >= 2 && users.length === 0 && (
+            <Button onClick={createUserAction}>
+              Click to create a user:&nbsp;<strong>{query}</strong>
+            </Button>
           )}
         </VStack>
       </Modal.Content>

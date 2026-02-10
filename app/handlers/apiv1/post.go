@@ -99,9 +99,9 @@ func CreatePost() web.HandlerFunc {
 
 		metrics.TotalPosts.Inc()
 		return c.Ok(web.Map{
-			"id":     newPost.Result.ID,
-			"number": newPost.Result.Number,
-			"title":  newPost.Result.Title,
+			"id":         newPost.Result.ID,
+			"number":     newPost.Result.Number,
+			"title":      newPost.Result.Title,
 			"slug":       newPost.Result.Slug,
 			"isApproved": newPost.Result.IsApproved,
 		})

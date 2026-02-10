@@ -48,13 +48,6 @@ export const VotesModal: React.FC<VotesModalProps> = (props) => {
     handleSearchFilterChanged("")
   }
 
-  const createUserAction = async () => {
-    setIsLoading(true)
-    await createUser(query)
-    await closeModal()
-    setIsLoading(false)
-  }
-
   const handleSearchFilterChanged = (query: string) => {
     const votes = allVotes.filter((x) => x.user.name.toLowerCase().indexOf(query.toLowerCase()) >= 0)
     setQuery(query)
@@ -98,18 +91,11 @@ export const VotesModal: React.FC<VotesModalProps> = (props) => {
                 </HStack>
               ))}
               {filteredVotes.length === 0 && (
-                <>
-                  <p className="text-muted">
-                    <Trans id="modal.showvotes.message.zeromatches">
-                      No users found matching <strong>{query}</strong>.
-                    </Trans>
-                  </p>
-                  {Fider.session.user.isCollaborator && (
-                    <Button onClick={createUserAction}>
-                      Click to create a user:&nbsp;<strong>{query}</strong>
-                    </Button>
-                  )}
-                </>
+                <p className="text-muted">
+                  <Trans id="modal.showvotes.message.zeromatches">
+                    No users found matching <strong>{query}</strong>.
+                  </Trans>
+                </p>
               )}
             </VStack>
           </>

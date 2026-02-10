@@ -60,7 +60,7 @@ export const addVote = async (postNumber: number): Promise<Result> => {
 }
 
 export const addVoteOnBehalf = async (postNumber: number, userID: number): Promise<Result> => {
-  return http.post(`/api/v1/posts/${postNumber}/votes/${userID}`).then(http.event("post", "vote"))
+  return http.post(`/api/v1/posts/${postNumber}/vote-on-behalf/${userID}`).then(http.event("post", "vote"))
 }
 
 export const removeVote = async (postNumber: number): Promise<Result> => {
