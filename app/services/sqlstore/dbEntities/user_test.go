@@ -89,3 +89,72 @@ func TestUserToModel_Nil(t *testing.T) {
 		t.Error("Expected ToModel on nil to return nil")
 	}
 }
+
+func TestUserToModel_WithCustomFields(t *testing.T) {
+	// Create a proper context with web.Request
+	u, _ := url.Parse("http://test.fider.io")
+	req := web.Request{URL: u}
+	ctx := context.WithValue(context.Background(), app.RequestCtxKey, req)
+
+	// Create a test dbEntities.User with custom fields
+	dbUser := &dbEntities.User{
+		ID:            sql.NullInt64{Int64: 1, Valid: true},
+		Name:          sql.NullString{String: "John Doe", Valid: true},
+		Email:         sql.NullString{String: "john@example.com", Valid: true},
+		Role:          sql.NullInt64{Int64: int64(enum.RoleAdministrator), Valid: true},
+		Status:        sql.NullInt64{Int64: int64(enum.UserActive), Valid: true},
+		AvatarType:    sql.NullInt64{Int64: int64(enum.AvatarTypeGravatar), Valid: true},
+		AvatarBlobKey: sql.NullString{String: "", Valid: true},
+		IsTrusted:     sql.NullBool{Bool: true, Valid: true},
+		CustomFields:  sql.NullString{String: `{"mrr":100,"tier":"vip","beta":true}`, Valid: true},
+	}
+
+	entityUser := dbUser.ToModel(ctx)
+
+	if entityUser == nil {
+		t.Fatal("ToModel returned nil")
+	}
+
+	if entityUser.CustomFields == nil {
+		t.Fatal("Expected CustomFields to be set")
+	}
+
+	if entityUser.CustomFields["tier"] != "vip" {
+		t.Errorf("Expected tier 'vip', got '%v'", entityUser.CustomFields["tier"])
+	}
+
+	if entityUser.CustomFields["mrr"] != float64(100) {
+		t.Errorf("Expected mrr 100, got '%v'", entityUser.CustomFields["mrr"])
+	}
+
+	if entityUser.CustomFields["beta"] != true {
+		t.Errorf("Expected beta true, got '%v'", entityUser.CustomFields["beta"])
+	}
+}
+
+func TestUserToModel_EmptyCustomFields(t *testing.T) {
+	u, _ := url.Parse("http://test.fider.io")
+	req := web.Request{URL: u}
+	ctx := context.WithValue(context.Background(), app.RequestCtxKey, req)
+
+	dbUser := &dbEntities.User{
+		ID:            sql.NullInt64{Int64: 1, Valid: true},
+		Name:          sql.NullString{String: "John Doe", Valid: true},
+		Email:         sql.NullString{String: "john@example.com", Valid: true},
+		Role:          sql.NullInt64{Int64: int64(enum.RoleVisitor), Valid: true},
+		Status:        sql.NullInt64{Int64: int64(enum.UserActive), Valid: true},
+		AvatarType:    sql.NullInt64{Int64: int64(enum.AvatarTypeGravatar), Valid: true},
+		AvatarBlobKey: sql.NullString{String: "", Valid: true},
+		CustomFields:  sql.NullString{String: "", Valid: false},
+	}
+
+	entityUser := dbUser.ToModel(ctx)
+
+	if entityUser == nil {
+		t.Fatal("ToModel returned nil")
+	}
+
+	if entityUser.CustomFields != nil {
+		t.Error("Expected CustomFields to be nil for empty custom_fields")
+	}
+}
