@@ -1,5 +1,5 @@
-import React, { useState } from "react"
-import { Post, User } from "@fider/models"
+import React, { useEffect, useState } from "react"
+import { Post, User, Vote } from "@fider/models"
 import { Modal, Button, Input, Avatar, UserName, Loader } from "@fider/components"
 import { actions, http } from "@fider/services"
 import IconSearch from "@fider/assets/images/heroicons-search.svg"
@@ -25,6 +25,17 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
   const [users, setUsers] = useState<User[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [votingUserID, setVotingUserID] = useState<number | null>(null)
+  const [votedUserIDs, setVotedUserIDs] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    if (props.isOpen) {
+      actions.listVotes(props.post.number).then((response) => {
+        if (response.ok) {
+          setVotedUserIDs(new Set(response.data.map((v: Vote) => v.user.id)))
+        }
+      })
+    }
+  }, [props.isOpen])
 
   const searchUsers = async (q: string) => {
     setQuery(q)
@@ -45,6 +56,7 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
     setVotingUserID(user.id)
     const result = await actions.addVoteOnBehalf(props.post.number, user.id)
     if (result.ok) {
+      setVotedUserIDs((prev) => new Set(prev).add(user.id))
       props.onVoted()
     }
     setVotingUserID(null)
@@ -87,9 +99,15 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
                     <UserName user={user} />
                   </VStack>
                 </HStack>
-                <Button variant="secondary" size="small" onClick={() => handleVote(user)} disabled={votingUserID === user.id}>
-                  <Trans id="action.vote">Vote</Trans>
-                </Button>
+                {votedUserIDs.has(user.id) ? (
+                  <span className="text-muted text-sm">
+                    <Trans id="label.voted">Voted</Trans>
+                  </span>
+                ) : (
+                  <Button variant="secondary" size="small" onClick={() => handleVote(user)} disabled={votingUserID === user.id}>
+                    <Trans id="action.vote">Vote</Trans>
+                  </Button>
+                )}
               </HStack>
             ))}
           {!isSearching && query.length >= 2 && users.length === 0 && (
