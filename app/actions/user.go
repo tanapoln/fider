@@ -13,7 +13,7 @@ import (
 	"github.com/getfider/fider/app/pkg/validate"
 )
 
-//CreateUser is the action to create a new user
+// CreateUser is the action to create a new user
 type CreateUser struct {
 	Name      string `json:"name"`
 	Email     string `json:"email"`
@@ -53,7 +53,7 @@ func (action *CreateUser) Validate(ctx context.Context, user *entity.User) *vali
 	return result
 }
 
-//ChangeUserRole is the input model change role of an user
+// ChangeUserRole is the input model change role of an user
 type ChangeUserRole struct {
 	Role   enum.Role `route:"role"`
 	UserID int       `json:"userID"`
@@ -92,7 +92,7 @@ func (action *ChangeUserRole) Validate(ctx context.Context, user *entity.User) *
 	return result
 }
 
-//ChangeUserEmail is the action used to change current user's email
+// ChangeUserEmail is the action used to change current user's email
 type ChangeUserEmail struct {
 	Email           string `json:"email" format:"lower"`
 	VerificationKey string
@@ -143,22 +143,22 @@ func (action *ChangeUserEmail) Validate(ctx context.Context, user *entity.User) 
 	return result
 }
 
-//GetEmail returns the email being verified
+// GetEmail returns the email being verified
 func (action *ChangeUserEmail) GetEmail() string {
 	return action.Email
 }
 
-//GetName returns empty for this kind of process
+// GetName returns empty for this kind of process
 func (action *ChangeUserEmail) GetName() string {
 	return ""
 }
 
-//GetUser returns the current user performing this action
+// GetUser returns the current user performing this action
 func (action *ChangeUserEmail) GetUser() *entity.User {
 	return action.Requestor
 }
 
-//GetKind returns EmailVerificationKindSignIn
+// GetKind returns EmailVerificationKindSignIn
 func (action *ChangeUserEmail) GetKind() enum.EmailVerificationKind {
 	return enum.EmailVerificationKindChangeEmail
 }
@@ -198,7 +198,7 @@ func (action *SetUserCustomFields) Validate(ctx context.Context, user *entity.Us
 			return result
 		}
 		switch value.(type) {
-		case string, float64, bool, nil:
+		case string, bool, int, int64, int32, float32, float64, nil:
 			// valid primitive types (JSON numbers are decoded as float64)
 		default:
 			result.AddFieldFailure("customFields", "Custom field values must be primitives (string, number, boolean or null).")
