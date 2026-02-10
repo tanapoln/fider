@@ -78,7 +78,13 @@ func UntrustUser() web.HandlerFunc {
 // SetUserCustomFields is used to set custom fields on a user
 func SetUserCustomFields() web.HandlerFunc {
 	return func(c *web.Context) error {
+		userID, err := c.ParamAsInt("userID")
+		if err != nil {
+			return c.NotFound()
+		}
+
 		action := new(actions.SetUserCustomFields)
+		action.UserID = userID
 		if result := c.BindTo(action); !result.Ok {
 			return c.HandleValidation(result)
 		}

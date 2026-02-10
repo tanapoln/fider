@@ -96,7 +96,7 @@ const CustomFieldsModal = (props: CustomFieldsModalProps) => {
         return
       }
       if (field.key.length > 100) {
-        setError("Field key must have less than 100 characters.")
+        setError("Field key must have fewer than 100 characters.")
         return
       }
       if (result[field.key.trim()] !== undefined) {

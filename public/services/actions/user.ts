@@ -28,7 +28,6 @@ export const regenerateAPIKey = async (): Promise<Result<{ apiKey: string }>> =>
 
 export const setUserCustomFields = async (userID: number, customFields: Record<string, string | number | boolean | null>): Promise<Result> => {
   return await http.put(`/_api/admin/users/${userID}/custom-fields`, {
-    userID,
     customFields,
   })
 }

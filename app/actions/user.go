@@ -194,7 +194,7 @@ func (action *SetUserCustomFields) Validate(ctx context.Context, user *entity.Us
 
 	for key, value := range action.CustomFields {
 		if len(key) > 100 {
-			result.AddFieldFailure("customFields", "Custom field key must have less than 100 characters.")
+			result.AddFieldFailure("customFields", "Custom field key must have fewer than 100 characters.")
 			return result
 		}
 		switch value.(type) {
