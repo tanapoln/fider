@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react"
-import { Input, Avatar, Icon, Dropdown, Pagination } from "@fider/components"
+import { Input, Avatar, Icon, Dropdown, Pagination, Button, Modal } from "@fider/components"
 import { User, UserRole, UserStatus } from "@fider/models"
 import IconSearch from "@fider/assets/images/heroicons-search.svg"
 import IconX from "@fider/assets/images/heroicons-x.svg"
@@ -23,6 +23,136 @@ interface UserListItemExtendedProps extends UserListItemProps {
   isLast?: boolean
 }
 
+interface CustomFieldEntry {
+  key: string
+  value: string
+}
+
+interface CustomFieldsModalProps {
+  user: User
+  isOpen: boolean
+  onClose: () => void
+  onSave: (user: User, fields: Record<string, string | number | boolean | null>) => Promise<void>
+}
+
+const parseFieldValue = (value: string): string | number | boolean | null => {
+  if (value === "") return null
+  if (value === "true") return true
+  if (value === "false") return false
+  const num = Number(value)
+  if (!isNaN(num) && value.trim() !== "") return num
+  return value
+}
+
+const fieldValueToString = (value: string | number | boolean | null | undefined): string => {
+  if (value === null || value === undefined) return ""
+  return String(value)
+}
+
+const CustomFieldsModal = (props: CustomFieldsModalProps) => {
+  const [fields, setFields] = useState<CustomFieldEntry[]>([])
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (props.isOpen) {
+      const cf = props.user.customFields || {}
+      const entries = Object.entries(cf).map(([key, value]) => ({
+        key,
+        value: fieldValueToString(value),
+      }))
+      if (entries.length === 0) {
+        entries.push({ key: "", value: "" })
+      }
+      setFields(entries)
+      setError("")
+    }
+  }, [props.isOpen, props.user])
+
+  const addField = () => {
+    setFields([...fields, { key: "", value: "" }])
+  }
+
+  const removeField = (index: number) => {
+    const updated = fields.filter((_, i) => i !== index)
+    if (updated.length === 0) {
+      updated.push({ key: "", value: "" })
+    }
+    setFields(updated)
+  }
+
+  const updateField = (index: number, key: string, value: string) => {
+    const updated = [...fields]
+    updated[index] = { key, value }
+    setFields(updated)
+  }
+
+  const handleSave = async () => {
+    setError("")
+    const result: Record<string, string | number | boolean | null> = {}
+    for (const field of fields) {
+      if (field.key.trim() === "" && field.value.trim() === "") continue
+      if (field.key.trim() === "") {
+        setError("Field key cannot be empty.")
+        return
+      }
+      if (field.key.length > 100) {
+        setError("Field key must have less than 100 characters.")
+        return
+      }
+      if (result[field.key.trim()] !== undefined) {
+        setError(`Duplicate key: "${field.key.trim()}"`)
+        return
+      }
+      result[field.key.trim()] = parseFieldValue(field.value)
+    }
+    await props.onSave(props.user, result)
+  }
+
+  return (
+    <Modal.Window isOpen={props.isOpen} onClose={props.onClose} size="large">
+      <Modal.Header>
+        <h3>Custom Fields for {props.user.name}</h3>
+      </Modal.Header>
+      <Modal.Content>
+        {error && <div className="text-red-700 mb-2 text-xs">{error}</div>}
+        <div className="mb-2 text-muted text-xs">
+          Values are auto-detected as number, boolean (true/false), or string. Leave value empty for null.
+        </div>
+        {fields.map((field, index) => (
+          <div key={index} className="flex gap-2 mb-2 flex-items-center">
+            <input
+              className="c-input flex-grow"
+              placeholder="Key (e.g. mrr, tier)"
+              value={field.key}
+              onChange={(e) => updateField(index, e.target.value, field.value)}
+            />
+            <input
+              className="c-input flex-grow"
+              placeholder="Value (e.g. 100, vip, true)"
+              value={field.value}
+              onChange={(e) => updateField(index, field.key, e.target.value)}
+            />
+            <Button variant="danger" size="small" onClick={() => removeField(index)}>
+              <Icon sprite={IconX} width="14" height="14" />
+            </Button>
+          </div>
+        ))}
+        <Button variant="tertiary" size="small" onClick={addField}>
+          + Add Field
+        </Button>
+      </Modal.Content>
+      <Modal.Footer>
+        <Button variant="tertiary" onClick={props.onClose}>
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={handleSave}>
+          Save Custom Fields
+        </Button>
+      </Modal.Footer>
+    </Modal.Window>
+  )
+}
+
 const UserListItem = (props: UserListItemExtendedProps) => {
   const admin = props.user.role === UserRole.Administrator && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">administrator</span>
   const collaborator = props.user.role === UserRole.Collaborator && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">collaborator</span>
@@ -32,46 +162,70 @@ const UserListItem = (props: UserListItemExtendedProps) => {
   )
   const isMember = props.user.role === UserRole.Visitor
 
+  const customFields = props.user.customFields || {}
+  const customFieldKeys = Object.keys(customFields)
+
   const actionSelected = (actionName: string) => () => {
     props.onAction(actionName, props.user)
   }
 
   return (
-    <div
-      className={`border-b border-gray-200 grid gap-4 py-4 px-4 flex-items-center bg-white hover ${props.isLast ? "rounded-md-b" : ""}`}
-      style={{ gridTemplateColumns: "minmax(200px, 1fr) minmax(280px, 2fr) minmax(120px, 150px) 100px" }}
-    >
-      <HStack>
-        <Avatar user={props.user} />
-        <div className="text-subtitle">{props.user.name}</div>
-      </HStack>
+    <div className={`border-b border-gray-200 py-4 px-4 bg-white hover ${props.isLast ? "rounded-md-b" : ""}`}>
+      <div className="grid gap-4 flex-items-center" style={{ gridTemplateColumns: "minmax(200px, 1fr) minmax(280px, 2fr) minmax(120px, 150px) 100px" }}>
+        <HStack>
+          <Avatar user={props.user} />
+          <div className="text-subtitle">{props.user.name}</div>
+        </HStack>
 
-      <div className="text-muted nowrap" title={props.user.email}>
-        {props.user.email || "No email"}
-      </div>
+        <div className="text-muted nowrap" title={props.user.email}>
+          {props.user.email || "No email"}
+        </div>
 
-      <div>
-        {admin} {collaborator} {blocked} {trusted}
-        {isMember && !blocked && !trusted && <span className="text-xs text-gray-600">member</span>}
-      </div>
+        <div>
+          {admin} {collaborator} {blocked} {trusted}
+          {isMember && !blocked && !trusted && <span className="text-xs text-gray-600">member</span>}
+        </div>
 
-      <div className="flex justify-end relative">
-        {Fider.session.user.id !== props.user.id && Fider.session.user.isAdministrator && (
-          <div className="relative z-10">
-            <Dropdown renderHandle={<Icon sprite={IconDotsHorizontal} width="16" height="16" />}>
-              {!blocked && (!!collaborator || isMember) && (
-                <Dropdown.ListItem onClick={actionSelected("to-administrator")}>Promote to Administrator</Dropdown.ListItem>
-              )}
-              {!blocked && (!!admin || isMember) && <Dropdown.ListItem onClick={actionSelected("to-collaborator")}>Promote to Collaborator</Dropdown.ListItem>}
-              {!blocked && (!!collaborator || !!admin) && <Dropdown.ListItem onClick={actionSelected("to-visitor")}>Demote to Member</Dropdown.ListItem>}
-              {isMember && !blocked && !props.user.isTrusted && <Dropdown.ListItem onClick={actionSelected("approve")}>Trust User</Dropdown.ListItem>}
-              {isMember && !blocked && props.user.isTrusted && <Dropdown.ListItem onClick={actionSelected("unapprove")}>Untrust User</Dropdown.ListItem>}
-              {isMember && !blocked && <Dropdown.ListItem onClick={actionSelected("block")}>Block User</Dropdown.ListItem>}
-              {isMember && !!blocked && <Dropdown.ListItem onClick={actionSelected("unblock")}>Unblock User</Dropdown.ListItem>}
-            </Dropdown>
-          </div>
-        )}
+        <div className="flex justify-end relative">
+          {Fider.session.user.id !== props.user.id && (Fider.session.user.isAdministrator || Fider.session.user.isCollaborator) && (
+            <div className="relative z-10">
+              <Dropdown renderHandle={<Icon sprite={IconDotsHorizontal} width="16" height="16" />}>
+                {Fider.session.user.isAdministrator && !blocked && (!!collaborator || isMember) && (
+                  <Dropdown.ListItem onClick={actionSelected("to-administrator")}>Promote to Administrator</Dropdown.ListItem>
+                )}
+                {Fider.session.user.isAdministrator && !blocked && (!!admin || isMember) && (
+                  <Dropdown.ListItem onClick={actionSelected("to-collaborator")}>Promote to Collaborator</Dropdown.ListItem>
+                )}
+                {Fider.session.user.isAdministrator && !blocked && (!!collaborator || !!admin) && (
+                  <Dropdown.ListItem onClick={actionSelected("to-visitor")}>Demote to Member</Dropdown.ListItem>
+                )}
+                {Fider.session.user.isAdministrator && isMember && !blocked && !props.user.isTrusted && (
+                  <Dropdown.ListItem onClick={actionSelected("approve")}>Trust User</Dropdown.ListItem>
+                )}
+                {Fider.session.user.isAdministrator && isMember && !blocked && props.user.isTrusted && (
+                  <Dropdown.ListItem onClick={actionSelected("unapprove")}>Untrust User</Dropdown.ListItem>
+                )}
+                {Fider.session.user.isAdministrator && isMember && !blocked && (
+                  <Dropdown.ListItem onClick={actionSelected("block")}>Block User</Dropdown.ListItem>
+                )}
+                {Fider.session.user.isAdministrator && isMember && !!blocked && (
+                  <Dropdown.ListItem onClick={actionSelected("unblock")}>Unblock User</Dropdown.ListItem>
+                )}
+                <Dropdown.ListItem onClick={actionSelected("custom-fields")}>Manage Custom Fields</Dropdown.ListItem>
+              </Dropdown>
+            </div>
+          )}
+        </div>
       </div>
+      {customFieldKeys.length > 0 && (
+        <div className="flex gap-2 mt-2 ml-10 flex-wrap">
+          {customFieldKeys.map((key) => (
+            <span key={key} className="text-2xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+              {key}: {fieldValueToString(customFields[key])}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -83,6 +237,7 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(props.totalPages)
   const [searchTimeoutId, setSearchTimeoutId] = useState<number | undefined>(undefined)
+  const [customFieldsUser, setCustomFieldsUser] = useState<User | null>(null)
   const pageSize = 10
 
   // Initialize state from URL parameters and load first page
@@ -209,6 +364,20 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
         await changeTrust(true)
       } else if (actionName === "unapprove") {
         await changeTrust(false)
+      } else if (actionName === "custom-fields") {
+        setCustomFieldsUser(user)
+      }
+    },
+    [users]
+  )
+
+  const handleSaveCustomFields = useCallback(
+    async (user: User, customFields: Record<string, string | number | boolean | null>) => {
+      const result = await actions.setUserCustomFields(user.id, customFields)
+      if (result.ok) {
+        const updatedUsers = users.map((u) => (u.id === user.id ? { ...u, customFields } : u))
+        setUsers(updatedUsers)
+        setCustomFieldsUser(null)
       }
     },
     [users]
@@ -282,6 +451,15 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
           <strong>Blocked</strong> users are unable to sign into this site.
         </li>
       </ul>
+
+      {customFieldsUser && (
+        <CustomFieldsModal
+          user={customFieldsUser}
+          isOpen={!!customFieldsUser}
+          onClose={() => setCustomFieldsUser(null)}
+          onSave={handleSaveCustomFields}
+        />
+      )}
     </AdminPageContainer>
   )
 }

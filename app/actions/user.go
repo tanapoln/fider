@@ -162,3 +162,61 @@ func (action *ChangeUserEmail) GetUser() *entity.User {
 func (action *ChangeUserEmail) GetKind() enum.EmailVerificationKind {
 	return enum.EmailVerificationKindChangeEmail
 }
+
+// SetUserCustomFields is the action to set custom fields on a user
+type SetUserCustomFields struct {
+	UserID       int                    `json:"userID"`
+	CustomFields map[string]interface{} `json:"customFields"`
+}
+
+// IsAuthorized returns true if current user is authorized to perform this action
+func (action *SetUserCustomFields) IsAuthorized(ctx context.Context, user *entity.User) bool {
+	return user != nil && user.IsCollaborator()
+}
+
+// Validate if current model is valid
+func (action *SetUserCustomFields) Validate(ctx context.Context, user *entity.User) *validate.Result {
+	result := validate.Success()
+
+	if action.UserID <= 0 {
+		result.AddFieldFailure("userID", "User ID is required.")
+		return result
+	}
+
+	if action.CustomFields == nil {
+		action.CustomFields = make(map[string]interface{})
+	}
+
+	if len(action.CustomFields) > 50 {
+		result.AddFieldFailure("customFields", "Custom fields cannot have more than 50 entries.")
+		return result
+	}
+
+	for key, value := range action.CustomFields {
+		if len(key) > 100 {
+			result.AddFieldFailure("customFields", "Custom field key must have less than 100 characters.")
+			return result
+		}
+		switch value.(type) {
+		case string, float64, bool, nil:
+			// valid primitive types (JSON numbers are decoded as float64)
+		default:
+			result.AddFieldFailure("customFields", "Custom field values must be primitives (string, number, boolean or null).")
+			return result
+		}
+	}
+
+	userByID := &query.GetUserByID{UserID: action.UserID}
+	err := bus.Dispatch(ctx, userByID)
+	if err != nil {
+		if errors.Cause(err) == app.ErrNotFound {
+			result.AddFieldFailure("userID", "User not found.")
+		} else {
+			return validate.Error(err)
+		}
+	} else if userByID.Result.Tenant.ID != user.Tenant.ID {
+		result.AddFieldFailure("userID", "User not found.")
+	}
+
+	return result
+}

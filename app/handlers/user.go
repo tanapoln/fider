@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/getfider/fider/app/actions"
 	"github.com/getfider/fider/app/models/cmd"
 	"github.com/getfider/fider/app/pkg/bus"
 	"github.com/getfider/fider/app/pkg/web"
@@ -67,6 +68,25 @@ func UntrustUser() web.HandlerFunc {
 
 		err = bus.Dispatch(c, &cmd.UntrustUser{UserID: userID})
 		if err != nil {
+			return c.Failure(err)
+		}
+
+		return c.Ok(web.Map{})
+	}
+}
+
+// SetUserCustomFields is used to set custom fields on a user
+func SetUserCustomFields() web.HandlerFunc {
+	return func(c *web.Context) error {
+		action := new(actions.SetUserCustomFields)
+		if result := c.BindTo(action); !result.Ok {
+			return c.HandleValidation(result)
+		}
+
+		if err := bus.Dispatch(c, &cmd.SetUserCustomFields{
+			UserID:       action.UserID,
+			CustomFields: action.CustomFields,
+		}); err != nil {
 			return c.Failure(err)
 		}
 

@@ -8,17 +8,18 @@ import (
 
 // User represents an user inside our application
 type User struct {
-	ID            int             `json:"id"`
-	Name          string          `json:"name"`
-	Tenant        *Tenant         `json:"-"`
-	Email         string          `json:"-"`
-	Role          enum.Role       `json:"role"`
-	Providers     []*UserProvider `json:"-"`
-	AvatarBlobKey string          `json:"-"`
-	AvatarType    enum.AvatarType `json:"-"`
-	AvatarURL     string          `json:"avatarURL,omitempty"`
-	Status        enum.UserStatus `json:"status"`
-	IsTrusted     bool            `json:"isTrusted"`
+	ID            int                    `json:"id"`
+	Name          string                 `json:"name"`
+	Tenant        *Tenant                `json:"-"`
+	Email         string                 `json:"-"`
+	Role          enum.Role              `json:"role"`
+	Providers     []*UserProvider        `json:"-"`
+	AvatarBlobKey string                 `json:"-"`
+	AvatarType    enum.AvatarType        `json:"-"`
+	AvatarURL     string                 `json:"avatarURL,omitempty"`
+	Status        enum.UserStatus        `json:"status"`
+	IsTrusted     bool                   `json:"isTrusted"`
+	CustomFields  map[string]interface{} `json:"customFields,omitempty"`
 }
 
 // HasProvider returns true if current user has registered with given provider
@@ -61,9 +62,11 @@ func (umc UserWithEmail) MarshalJSON() ([]byte, error) {
 	type Alias User // Prevent recursion
 	return json.Marshal(&struct {
 		*Alias
-		Email string `json:"email"`
+		Email        string                 `json:"email"`
+		CustomFields map[string]interface{} `json:"customFields"`
 	}{
-		Alias: (*Alias)(umc.User),
-		Email: umc.Email,
+		Alias:        (*Alias)(umc.User),
+		Email:        umc.Email,
+		CustomFields: umc.CustomFields,
 	})
 }
