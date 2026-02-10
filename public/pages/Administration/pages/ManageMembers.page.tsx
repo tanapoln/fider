@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react"
-import { Input, Avatar, Icon, Dropdown, Pagination } from "@fider/components"
+import { Input, Avatar, Icon, Dropdown, Pagination, Modal, Button, Form } from "@fider/components"
 import { User, UserRole, UserStatus } from "@fider/models"
 import IconSearch from "@fider/assets/images/heroicons-search.svg"
 import IconX from "@fider/assets/images/heroicons-x.svg"
 import IconDotsHorizontal from "@fider/assets/images/heroicons-dots-horizontal.svg"
 import HeroIconFilter from "@fider/assets/images/heroicons-filter.svg"
-import { actions, Fider } from "@fider/services"
+import { actions, Fider, Failure } from "@fider/services"
 import { AdminPageContainer } from "../components/AdminBasePage"
 import { HStack, VStack } from "@fider/components/layout"
 
@@ -83,6 +83,9 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(props.totalPages)
   const [searchTimeoutId, setSearchTimeoutId] = useState<number | undefined>(undefined)
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [newMemberName, setNewMemberName] = useState("")
+  const [addMemberError, setAddMemberError] = useState<Failure>()
   const pageSize = 10
 
   // Initialize state from URL parameters and load first page
@@ -214,6 +217,24 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
     [users]
   )
 
+  const handleAddMember = useCallback(async () => {
+    setAddMemberError(undefined)
+    const result = await actions.createUser(newMemberName)
+    if (result.ok) {
+      setShowAddMemberModal(false)
+      setNewMemberName("")
+      reloadUsers(query, roleFilter, currentPage)
+    } else if (result.error) {
+      setAddMemberError(result.error)
+    }
+  }, [newMemberName, query, roleFilter, currentPage, reloadUsers])
+
+  const handleCloseAddMemberModal = useCallback(() => {
+    setShowAddMemberModal(false)
+    setNewMemberName("")
+    setAddMemberError(undefined)
+  }, [])
+
   return (
     <AdminPageContainer id="p-admin-members" name="members" title="Members" subtitle="Manage your site administrators and collaborators">
       <div className="flex gap-4 flex-items-center mb-4">
@@ -249,7 +270,28 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
             <span className={roleFilter === UserRole.Visitor ? "text-semibold" : ""}>Members</span>
           </Dropdown.ListItem>
         </Dropdown>
+        <Button variant="primary" onClick={() => setShowAddMemberModal(true)}>
+          Add Member
+        </Button>
       </div>
+
+      <Modal.Window isOpen={showAddMemberModal} onClose={handleCloseAddMemberModal} center={false} size="small">
+        <Modal.Header>Add New Member</Modal.Header>
+        <Modal.Content>
+          <Form error={addMemberError}>
+            <Input field="name" label="Name" placeholder="Enter member name" value={newMemberName} onChange={setNewMemberName} maxLength={100} />
+            <p className="text-muted">A random email will be generated for this member automatically.</p>
+          </Form>
+        </Modal.Content>
+        <Modal.Footer>
+          <Button variant="primary" onClick={handleAddMember} disabled={!newMemberName.trim()}>
+            Add
+          </Button>
+          <Button variant="tertiary" onClick={handleCloseAddMemberModal}>
+            Cancel
+          </Button>
+        </Modal.Footer>
+      </Modal.Window>
 
       <VStack className="rounded-md border border-gray-200 relative">
         <div
