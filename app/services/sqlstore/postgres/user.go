@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -279,6 +280,23 @@ func updateCurrentUser(ctx context.Context, c *cmd.UpdateCurrentUser) error {
 	})
 }
 
+func setUserCustomFields(ctx context.Context, c *cmd.SetUserCustomFields) error {
+	return using(ctx, func(trx *dbx.Trx, tenant *entity.Tenant, user *entity.User) error {
+		jsonBytes, err := json.Marshal(c.CustomFields)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal custom fields")
+		}
+		_, err = trx.Execute(
+			"UPDATE users SET custom_fields = $3 WHERE id = $1 AND tenant_id = $2",
+			c.UserID, tenant.ID, string(jsonBytes),
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to set user custom fields")
+		}
+		return nil
+	})
+}
+
 func getUserByID(ctx context.Context, q *query.GetUserByID) error {
 	return using(ctx, func(trx *dbx.Trx, tenant *entity.Tenant, user *entity.User) error {
 		u, err := queryUser(ctx, trx, "id = $1", q.UserID)
@@ -328,7 +346,7 @@ func getAllUsers(ctx context.Context, q *query.GetAllUsers) error {
 	return using(ctx, func(trx *dbx.Trx, tenant *entity.Tenant, user *entity.User) error {
 		var users []*dbEntities.User
 		err := trx.Select(&users, `
-			SELECT id, name, email, tenant_id, role, status, avatar_type, avatar_bkey
+			SELECT id, name, email, tenant_id, role, status, avatar_type, avatar_bkey, custom_fields
 			FROM users
 			WHERE tenant_id = $1
 			AND status != $2
@@ -370,7 +388,7 @@ func getAllUsersNames(ctx context.Context, q *query.GetAllUsersNames) error {
 
 func queryUser(ctx context.Context, trx *dbx.Trx, filter string, args ...any) (*entity.User, error) {
 	user := dbEntities.User{}
-	sql := fmt.Sprintf("SELECT id, name, email, tenant_id, role, status, avatar_type, avatar_bkey, is_trusted FROM users WHERE status != %d AND ", enum.UserDeleted)
+	sql := fmt.Sprintf("SELECT id, name, email, tenant_id, role, status, avatar_type, avatar_bkey, is_trusted, custom_fields FROM users WHERE status != %d AND ", enum.UserDeleted)
 	err := trx.Get(&user, sql+filter, args...)
 	if err != nil {
 		return nil, err
@@ -397,7 +415,7 @@ func searchUsers(ctx context.Context, q *query.SearchUsers) error {
 		}
 
 		baseQuery := `
-			SELECT id, name, email, tenant_id, role, status, avatar_type, avatar_bkey, is_trusted
+			SELECT id, name, email, tenant_id, role, status, avatar_type, avatar_bkey, is_trusted, custom_fields
 			FROM users
 			WHERE tenant_id = $1 AND status != $2
 		`

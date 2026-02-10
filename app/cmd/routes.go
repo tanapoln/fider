@@ -169,6 +169,7 @@ func routes(r *web.Engine) *web.Engine {
 		ui.Get("/admin/moderation", handlers.GetModerationPageHandler())
 		ui.Get("/admin/authentication", handlers.ManageAuthentication())
 		ui.Get("/_api/admin/oauth/:provider", handlers.GetOAuthConfig())
+		ui.Put("/_api/admin/users/:userID/custom-fields", handlers.SetUserCustomFields())
 
 		// From this step, only Administrators are allowed
 		ui.Use(middlewares.IsAuthorized(enum.RoleAdministrator))

@@ -209,3 +209,153 @@ func TestChangeUserRole_CurrentUser(t *testing.T) {
 	result := action.Validate(context.Background(), currentUser)
 	ExpectFailed(result, "userID")
 }
+
+func TestSetUserCustomFields_Unauthorized(t *testing.T) {
+	RegisterT(t)
+
+	for _, user := range []*entity.User{
+		nil,
+		{ID: 1, Role: enum.RoleVisitor},
+	} {
+		action := actions.SetUserCustomFields{UserID: 2}
+		Expect(action.IsAuthorized(context.Background(), user)).IsFalse()
+	}
+}
+
+func TestSetUserCustomFields_Authorized(t *testing.T) {
+	RegisterT(t)
+
+	for _, user := range []*entity.User{
+		{ID: 1, Role: enum.RoleCollaborator},
+		{ID: 1, Role: enum.RoleAdministrator},
+	} {
+		action := actions.SetUserCustomFields{UserID: 2}
+		Expect(action.IsAuthorized(context.Background(), user)).IsTrue()
+	}
+}
+
+func TestSetUserCustomFields_InvalidUserID(t *testing.T) {
+	RegisterT(t)
+
+	currentUser := &entity.User{
+		Tenant: &entity.Tenant{ID: 1},
+		Role:   enum.RoleAdministrator,
+	}
+
+	action := actions.SetUserCustomFields{UserID: 0}
+	result := action.Validate(context.Background(), currentUser)
+	ExpectFailed(result, "userID")
+}
+
+func TestSetUserCustomFields_UserNotFound(t *testing.T) {
+	RegisterT(t)
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
+		return app.ErrNotFound
+	})
+
+	currentUser := &entity.User{
+		Tenant: &entity.Tenant{ID: 1},
+		Role:   enum.RoleAdministrator,
+	}
+
+	action := actions.SetUserCustomFields{
+		UserID:       999,
+		CustomFields: map[string]interface{}{"mrr": float64(100)},
+	}
+	result := action.Validate(context.Background(), currentUser)
+	ExpectFailed(result, "userID")
+}
+
+func TestSetUserCustomFields_ValidInput(t *testing.T) {
+	RegisterT(t)
+
+	targetUser := &entity.User{
+		ID:     2,
+		Tenant: &entity.Tenant{ID: 1},
+	}
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
+		if q.UserID == targetUser.ID {
+			q.Result = targetUser
+			return nil
+		}
+		return app.ErrNotFound
+	})
+
+	currentUser := &entity.User{
+		Tenant: &entity.Tenant{ID: 1},
+		Role:   enum.RoleAdministrator,
+	}
+
+	action := actions.SetUserCustomFields{
+		UserID: targetUser.ID,
+		CustomFields: map[string]interface{}{
+			"mrr":  float64(100),
+			"tier": "vip",
+			"beta": true,
+		},
+	}
+	result := action.Validate(context.Background(), currentUser)
+	ExpectSuccess(result)
+}
+
+func TestSetUserCustomFields_InvalidValueType(t *testing.T) {
+	RegisterT(t)
+
+	targetUser := &entity.User{
+		ID:     2,
+		Tenant: &entity.Tenant{ID: 1},
+	}
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
+		if q.UserID == targetUser.ID {
+			q.Result = targetUser
+			return nil
+		}
+		return app.ErrNotFound
+	})
+
+	currentUser := &entity.User{
+		Tenant: &entity.Tenant{ID: 1},
+		Role:   enum.RoleAdministrator,
+	}
+
+	action := actions.SetUserCustomFields{
+		UserID: targetUser.ID,
+		CustomFields: map[string]interface{}{
+			"data": []string{"a", "b"},
+		},
+	}
+	result := action.Validate(context.Background(), currentUser)
+	ExpectFailed(result, "customFields")
+}
+
+func TestSetUserCustomFields_NilCustomFields(t *testing.T) {
+	RegisterT(t)
+
+	targetUser := &entity.User{
+		ID:     2,
+		Tenant: &entity.Tenant{ID: 1},
+	}
+
+	bus.AddHandler(func(ctx context.Context, q *query.GetUserByID) error {
+		if q.UserID == targetUser.ID {
+			q.Result = targetUser
+			return nil
+		}
+		return app.ErrNotFound
+	})
+
+	currentUser := &entity.User{
+		Tenant: &entity.Tenant{ID: 1},
+		Role:   enum.RoleAdministrator,
+	}
+
+	action := actions.SetUserCustomFields{
+		UserID:       targetUser.ID,
+		CustomFields: nil,
+	}
+	result := action.Validate(context.Background(), currentUser)
+	ExpectSuccess(result)
+}

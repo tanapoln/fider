@@ -25,3 +25,9 @@ export const deleteCurrentAccount = async (): Promise<Result> => {
 export const regenerateAPIKey = async (): Promise<Result<{ apiKey: string }>> => {
   return await http.post<{ apiKey: string }>("/_api/user/regenerate-apikey")
 }
+
+export const setUserCustomFields = async (userID: number, customFields: Record<string, string | number | boolean | null>): Promise<Result> => {
+  return await http.put(`/_api/admin/users/${userID}/custom-fields`, {
+    customFields,
+  })
+}

@@ -97,6 +97,7 @@ func (s Service) Init() {
 	bus.AddHandler(registerUser)
 	bus.AddHandler(registerUserProvider)
 	bus.AddHandler(updateCurrentUser)
+	bus.AddHandler(setUserCustomFields)
 	bus.AddHandler(getUserByAPIKey)
 	bus.AddHandler(getUserByEmail)
 	bus.AddHandler(getUserByID)

@@ -32,6 +32,7 @@ export interface User {
   status: UserStatus
   isTrusted: boolean
   avatarURL: string
+  customFields?: Record<string, string | number | boolean | null>
 }
 
 export interface UserNames {

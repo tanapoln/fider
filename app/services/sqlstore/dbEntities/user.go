@@ -3,6 +3,7 @@ package dbEntities
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/url"
 
 	"github.com/getfider/fider/app"
@@ -22,6 +23,7 @@ type User struct {
 	AvatarType    sql.NullInt64  `db:"avatar_type"`
 	AvatarBlobKey sql.NullString `db:"avatar_bkey"`
 	IsTrusted     sql.NullBool   `db:"is_trusted"`
+	CustomFields  sql.NullString `db:"custom_fields"`
 	Providers     []*UserProvider
 }
 
@@ -64,6 +66,13 @@ func (u *User) ToModel(ctx context.Context) *entity.User {
 		AvatarBlobKey: u.AvatarBlobKey.String,
 		AvatarURL:     avatarURL,
 		IsTrusted:     u.IsTrusted.Bool,
+	}
+
+	if u.CustomFields.Valid && u.CustomFields.String != "" {
+		cf := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(u.CustomFields.String), &cf); err == nil {
+			user.CustomFields = cf
+		}
 	}
 
 	if u.Providers != nil {

@@ -54,3 +54,8 @@ type UpdateCurrentUser struct {
 	AvatarType enum.AvatarType
 	Avatar     *dto.ImageUpload
 }
+
+type SetUserCustomFields struct {
+	UserID       int
+	CustomFields map[string]interface{}
+}
