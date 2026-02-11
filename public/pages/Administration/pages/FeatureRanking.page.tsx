@@ -1,5 +1,5 @@
 import { PostStatus } from "@fider/models"
-import { compile } from "mathjs"
+import { compile, EvalFunction } from "mathjs"
 import React, { useMemo, useState } from "react"
 import { AdminPageContainer } from "../components/AdminBasePage"
 
@@ -64,7 +64,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
   // Compute sorted posts and any formula error as pure derived data (no setState in useMemo)
   const { sortedPosts, formulaError } = useMemo(() => {
     let error = ""
-    let compiledExpr: ReturnType<typeof compile> | undefined
+    let compiledExpr: EvalFunction | undefined
     try {
       compiledExpr = compile(formula)
     } catch (e) {
@@ -176,7 +176,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
             />
           </label>
           {formulaError && <p style={{ color: "var(--colors-red-500)", marginTop: "4px", fontSize: "0.875rem" }}>{formulaError}</p>}
-          <p style={{ color: "var(--colors-gray-500)", marginTop: "4px", fontSize: "0.8rem" }}>
+          <p style={{ color: "var(--colors-gray-500)", marginTop: "4px", marginBottom: "0", fontSize: "0.8rem" }}>
             Available identifiers: <code>{availableIdentifiers.join(", ")}</code>
           </p>
           {customFieldKeys.some((key) => key !== keyToIdentifier[key]) && (
