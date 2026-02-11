@@ -99,9 +99,9 @@ func CreatePost() web.HandlerFunc {
 
 		metrics.TotalPosts.Inc()
 		return c.Ok(web.Map{
-			"id":     newPost.Result.ID,
-			"number": newPost.Result.Number,
-			"title":  newPost.Result.Title,
+			"id":         newPost.Result.ID,
+			"number":     newPost.Result.Number,
+			"title":      newPost.Result.Title,
 			"slug":       newPost.Result.Slug,
 			"isApproved": newPost.Result.IsApproved,
 		})
@@ -426,6 +426,46 @@ func RemoveVote() web.HandlerFunc {
 		return addOrRemove(c, func(post *entity.Post, user *entity.User) bus.Msg {
 			return &cmd.RemoveVote{Post: post, User: user}
 		})
+	}
+}
+
+// AddVoteOnBehalf adds a vote on behalf of another user (staff only)
+func AddVoteOnBehalf() web.HandlerFunc {
+	return func(c *web.Context) error {
+		number, err := c.ParamAsInt("number")
+		if err != nil {
+			return c.NotFound()
+		}
+
+		userID, err := c.ParamAsInt("userID")
+		if err != nil {
+			return c.NotFound()
+		}
+
+		getPost := &query.GetPostByNumber{Number: number}
+		if err := bus.Dispatch(c, getPost); err != nil {
+			return c.Failure(err)
+		}
+
+		if getPost.Result == nil {
+			return c.NotFound()
+		}
+
+		getUser := &query.GetUserByID{UserID: userID}
+		if err := bus.Dispatch(c, getUser); err != nil {
+			return c.Failure(err)
+		}
+
+		if getUser.Result == nil {
+			return c.NotFound()
+		}
+
+		if err := bus.Dispatch(c, &cmd.AddVote{Post: getPost.Result, User: getUser.Result}); err != nil {
+			return c.Failure(err)
+		}
+
+		metrics.TotalVotes.Inc()
+		return c.Ok(web.Map{})
 	}
 }
 

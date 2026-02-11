@@ -256,6 +256,7 @@ func routes(r *web.Engine) *web.Engine {
 		staffApi.Post("/api/v1/invitations/sample", apiv1.SendSampleInvite())
 
 		staffApi.Use(middlewares.BlockLockedTenants())
+		staffApi.Post("/api/v1/posts/:number/vote-on-behalf/:userID", apiv1.AddVoteOnBehalf())
 		staffApi.Post("/api/v1/posts/:number/tags/:slug", apiv1.AssignTag())
 		staffApi.Delete("/api/v1/posts/:number/tags/:slug", apiv1.UnassignTag())
 	}
