@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -504,6 +505,77 @@ func getAllPosts(ctx context.Context, q *query.GetAllPosts) error {
 			return errors.Wrap(err, "failed to get all posts")
 		}
 		q.Result = searchQuery.Result
+		return nil
+	})
+}
+
+func getPostsRanking(ctx context.Context, q *query.GetPostsRanking) error {
+	return using(ctx, func(trx *dbx.Trx, tenant *entity.Tenant, user *entity.User) error {
+		type dbRankedPost struct {
+			ID                int            `db:"id"`
+			Number            int            `db:"number"`
+			Title             string         `db:"title"`
+			Slug              string         `db:"slug"`
+			Status            int            `db:"status"`
+			VotesCount        int            `db:"votes_count"`
+			CommentsCount     int            `db:"comments_count"`
+			CustomFieldSums   string         `db:"custom_field_sums"`
+		}
+
+		var posts []*dbRankedPost
+		err := trx.Select(&posts, `
+			SELECT
+				p.id,
+				p.number,
+				p.title,
+				p.slug,
+				p.status,
+				COUNT(DISTINCT pv.user_id) AS votes_count,
+				(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.tenant_id = p.tenant_id AND c.deleted_at IS NULL AND c.is_approved = true) AS comments_count,
+				COALESCE(
+					(SELECT json_object_agg(kv.key, kv.sum_val)
+					 FROM (
+						SELECT cf.key, SUM((cf.value)::numeric) AS sum_val
+						FROM post_votes pv2
+						INNER JOIN users u ON u.id = pv2.user_id AND u.tenant_id = pv2.tenant_id
+						CROSS JOIN LATERAL jsonb_each_text(COALESCE(u.custom_fields, '{}'::jsonb)) AS cf(key, value)
+						WHERE pv2.post_id = p.id AND pv2.tenant_id = p.tenant_id
+						AND cf.value ~ '^-?[0-9]+\.?[0-9]*$'
+						GROUP BY cf.key
+					 ) kv),
+					'{}'
+				) AS custom_field_sums
+			FROM posts p
+			LEFT JOIN post_votes pv ON pv.post_id = p.id AND pv.tenant_id = p.tenant_id
+			WHERE p.tenant_id = $1
+			AND p.status != `+strconv.Itoa(int(enum.PostDeleted))+`
+			GROUP BY p.id, p.number, p.title, p.slug, p.status
+			ORDER BY votes_count DESC, comments_count DESC
+		`, tenant.ID)
+		if err != nil {
+			return errors.Wrap(err, "failed to get posts ranking")
+		}
+
+		q.Result = make([]*entity.RankedPost, len(posts))
+		for i, post := range posts {
+			customFieldSums := make(map[string]float64)
+			if post.CustomFieldSums != "" && post.CustomFieldSums != "{}" {
+				var raw map[string]float64
+				if jsonErr := json.Unmarshal([]byte(post.CustomFieldSums), &raw); jsonErr == nil {
+					customFieldSums = raw
+				}
+			}
+			q.Result[i] = &entity.RankedPost{
+				ID:              post.ID,
+				Number:          post.Number,
+				Title:           post.Title,
+				Slug:            post.Slug,
+				Status:          enum.PostStatus(post.Status),
+				VotesCount:      post.VotesCount,
+				CommentsCount:   post.CommentsCount,
+				CustomFieldSums: customFieldSums,
+			}
+		}
 		return nil
 	})
 }

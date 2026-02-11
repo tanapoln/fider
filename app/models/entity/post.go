@@ -53,3 +53,15 @@ type OriginalPost struct {
 func (i *OriginalPost) Url(baseURL string) string {
 	return fmt.Sprintf("%s/posts/%d/%s", baseURL, i.Number, i.Slug)
 }
+
+// RankedPost represents a post with aggregated custom field data from voters for ranking
+type RankedPost struct {
+	ID                int                `json:"id"`
+	Number            int                `json:"number"`
+	Title             string             `json:"title"`
+	Slug              string             `json:"slug"`
+	Status            enum.PostStatus    `json:"status"`
+	VotesCount        int                `json:"votesCount"`
+	CommentsCount     int                `json:"commentsCount"`
+	CustomFieldSums   map[string]float64 `json:"customFieldSums"`
+}
