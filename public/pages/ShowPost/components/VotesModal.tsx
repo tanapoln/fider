@@ -3,14 +3,13 @@ import "./VotesModal.scss"
 import React, { useEffect, useState } from "react"
 import { Post, Vote } from "@fider/models"
 import { Modal, Button, Loader, Avatar, UserName, Moment, Input } from "@fider/components"
-import { actions, classSet, Fider } from "@fider/services"
+import { actions, classSet } from "@fider/services"
 import { useFider } from "@fider/hooks"
 import IconSearch from "@fider/assets/images/heroicons-search.svg"
 import IconX from "@fider/assets/images/heroicons-x.svg"
 import { HStack, VStack } from "@fider/components/layout"
 import { i18n } from "@lingui/core"
 import { Trans } from "@lingui/react/macro"
-import { createUser } from "@fider/services/actions"
 
 interface VotesModalProps {
   isOpen: boolean

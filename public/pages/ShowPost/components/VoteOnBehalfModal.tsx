@@ -27,6 +27,7 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
   const [isSearching, setIsSearching] = useState(false)
   const [votingUserID, setVotingUserID] = useState<number | null>(null)
   const [votedUserIDs, setVotedUserIDs] = useState<Set<number>>(new Set())
+  const [hasVoted, setHasVoted] = useState<boolean>(false)
   const searchRequestRef = useRef(0)
 
   useEffect(() => {
@@ -36,16 +37,12 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
           setVotedUserIDs(new Set(response.data.map((v: Vote) => v.user.id)))
         }
       })
+      searchUsers("")
     }
   }, [props.isOpen])
 
   const searchUsers = async (q: string) => {
     setQuery(q)
-    if (q.length < 2) {
-      setUsers([])
-      setIsSearching(false)
-      return
-    }
 
     const requestId = ++searchRequestRef.current
     setIsSearching(true)
@@ -64,7 +61,7 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
     const result = await actions.addVoteOnBehalf(props.post.number, user.id)
     if (result.ok) {
       setVotedUserIDs((prev) => new Set(prev).add(user.id))
-      props.onVoted()
+      setHasVoted(true)
     }
     setVotingUserID(null)
   }
@@ -72,7 +69,11 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
   const closeModal = () => {
     setQuery("")
     setUsers([])
-    props.onClose()
+    if (hasVoted) {
+      props.onVoted()
+    } else {
+      props.onClose()
+    }
   }
 
   const clearSearch = () => {
