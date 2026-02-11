@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react"
-import { AdminPageContainer } from "../components/AdminBasePage"
 import { PostStatus } from "@fider/models"
+import { compile, EvalFunction } from "mathjs"
+import React, { useMemo, useState } from "react"
+import { AdminPageContainer } from "../components/AdminBasePage"
 
 interface RankedPost {
   id: number
@@ -20,15 +21,11 @@ interface FeatureRankingPageProps {
 type SortField = "title" | "votesCount" | "commentsCount" | "score" | string
 type SortDir = "asc" | "desc"
 
-const defaultWeights: Record<string, number> = {
-  votesCount: 1,
-  commentsCount: 1,
-}
-
 const FeatureRankingPage = (props: FeatureRankingPageProps) => {
   const [sortField, setSortField] = useState<SortField>("score")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
-  const [weights, setWeights] = useState<Record<string, number>>(defaultWeights)
+  const [formula, setFormula] = useState<string>(localStorage.getItem("featureRankingFormula") || "votes + comments")
+  const [error, setError] = useState<string>("")
 
   // Collect all unique custom field keys from posts
   const customFieldKeys = useMemo(() => {
@@ -43,27 +40,24 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
     return Array.from(keys).sort()
   }, [props.posts])
 
-  // Initialize weights for custom fields if not already set
-  useEffect(() => {
-    const newWeights = { ...weights }
-    let changed = false
-    for (const key of customFieldKeys) {
-      if (!(key in newWeights)) {
-        newWeights[key] = 0
-        changed = true
-      }
+  const computeFormulaScore = (comp: EvalFunction, post: RankedPost): number => {
+    const obj = {
+      votes: post.votesCount,
+      comments: post.commentsCount,
+      ...post.customFieldSums,
     }
-    if (changed) {
-      setWeights(newWeights)
-    }
-  }, [customFieldKeys])
 
-  const computeScore = (post: RankedPost): number => {
-    let score = (weights.votesCount || 0) * post.votesCount + (weights.commentsCount || 0) * post.commentsCount
-    for (const key of customFieldKeys) {
-      score += (weights[key] || 0) * (post.customFieldSums[key] || 0)
+    try {
+      return comp.evaluate(obj)
+    } catch (e) {
+      setError(`Error in formula: ${e}`)
+      return 0
     }
-    return Math.round(score * 100) / 100
+  }
+
+  const handleFormulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    localStorage.setItem("featureRankingFormula", e.target.value)
+    setFormula(e.target.value)
   }
 
   const handleSort = (field: SortField) => {
@@ -76,9 +70,16 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
   }
 
   const sortedPosts = useMemo(() => {
+    setError("")
+    let comp: EvalFunction | undefined
+    try {
+      comp = compile(formula)
+    } catch (e) {
+      setError(`Error in formula: ${e}`)
+    }
     const withScores = props.posts.map((post) => ({
       ...post,
-      score: computeScore(post),
+      score: comp ? computeFormulaScore(comp, post) : 0,
     }))
 
     return withScores.sort((a, b) => {
@@ -98,7 +99,6 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
         valA = a.commentsCount
         valB = b.commentsCount
       } else {
-        // Custom field
         valA = a.customFieldSums[sortField] || 0
         valB = b.customFieldSums[sortField] || 0
       }
@@ -107,12 +107,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
       if (valA > valB) return sortDir === "asc" ? 1 : -1
       return 0
     })
-  }, [props.posts, sortField, sortDir, weights, customFieldKeys])
-
-  const handleWeightChange = (field: string, value: string) => {
-    const num = parseFloat(value)
-    setWeights({ ...weights, [field]: isNaN(num) ? 0 : num })
-  }
+  }, [props.posts, sortField, sortDir, customFieldKeys, formula])
 
   const sortIndicator = (field: string) => {
     if (sortField !== field) return ""
@@ -131,40 +126,27 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
     <AdminPageContainer id="p-admin-ranking" name="ranking" title="Feature Ranking" subtitle="Prioritize features based on votes, comments, and custom fields">
       <div className="mb-4">
         <h2 className="text-display">Score Formula Weights</h2>
-        <p className="text-muted mb-2">Configure how each factor contributes to the overall score. Score = Σ (weight × value) for each factor.</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+        <p className="text-muted mb-2">
+          Configure how each factor contributes to the overall score. Use `votes`, `comments`, and custom fields name to create math formula.
+        </p>
+        <div>
           <label style={{ display: "flex", flexDirection: "column", fontSize: "0.875rem" }}>
-            Votes
+            <span>
+              <strong>Formula</strong>
+            </span>
             <input
-              type="number"
-              step="0.1"
-              value={weights.votesCount ?? 0}
-              onChange={(e) => handleWeightChange("votesCount", e.target.value)}
-              style={{ width: "80px", padding: "4px 8px", border: "1px solid var(--colors-gray-300)", borderRadius: "4px" }}
+              onChange={handleFormulaChange}
+              value={formula}
+              style={{
+                width: "500px",
+                padding: "4px 8px",
+                border: error ? "1px solid var(--colors-red-500)" : "1px solid var(--colors-gray-300)",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+              }}
             />
           </label>
-          <label style={{ display: "flex", flexDirection: "column", fontSize: "0.875rem" }}>
-            Comments
-            <input
-              type="number"
-              step="0.1"
-              value={weights.commentsCount ?? 0}
-              onChange={(e) => handleWeightChange("commentsCount", e.target.value)}
-              style={{ width: "80px", padding: "4px 8px", border: "1px solid var(--colors-gray-300)", borderRadius: "4px" }}
-            />
-          </label>
-          {customFieldKeys.map((key) => (
-            <label key={key} style={{ display: "flex", flexDirection: "column", fontSize: "0.875rem" }}>
-              {key}
-              <input
-                type="number"
-                step="0.1"
-                value={weights[key] ?? 0}
-                onChange={(e) => handleWeightChange(key, e.target.value)}
-                style={{ width: "80px", padding: "4px 8px", border: "1px solid var(--colors-gray-300)", borderRadius: "4px" }}
-              />
-            </label>
-          ))}
+          {error && <p style={{ color: "var(--colors-red-500)", marginTop: "4px", fontSize: "0.875rem" }}>{error}</p>}
         </div>
       </div>
 
@@ -177,10 +159,10 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
               </th>
               <th style={{ padding: "8px", textAlign: "center" }}>Status</th>
               <th style={{ padding: "8px", cursor: "pointer", textAlign: "right", whiteSpace: "nowrap" }} onClick={() => handleSort("votesCount")}>
-                Votes{sortIndicator("votesCount")}
+                votes{sortIndicator("votesCount")}
               </th>
               <th style={{ padding: "8px", cursor: "pointer", textAlign: "right", whiteSpace: "nowrap" }} onClick={() => handleSort("commentsCount")}>
-                Comments{sortIndicator("commentsCount")}
+                comments{sortIndicator("commentsCount")}
               </th>
               {customFieldKeys.map((key) => (
                 <th key={key} style={{ padding: "8px", cursor: "pointer", textAlign: "right", whiteSpace: "nowrap" }} onClick={() => handleSort(key)}>
