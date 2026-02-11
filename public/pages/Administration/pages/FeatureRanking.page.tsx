@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { AdminPageContainer } from "../components/AdminBasePage"
 import { PostStatus } from "@fider/models"
 
@@ -44,7 +44,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
   }, [props.posts])
 
   // Initialize weights for custom fields if not already set
-  useMemo(() => {
+  useEffect(() => {
     const newWeights = { ...weights }
     let changed = false
     for (const key of customFieldKeys) {
@@ -107,7 +107,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
       if (valA > valB) return sortDir === "asc" ? 1 : -1
       return 0
     })
-  }, [props.posts, sortField, sortDir, weights])
+  }, [props.posts, sortField, sortDir, weights, customFieldKeys])
 
   const handleWeightChange = (field: string, value: string) => {
     const num = parseFloat(value)
@@ -131,9 +131,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
     <AdminPageContainer id="p-admin-ranking" name="ranking" title="Feature Ranking" subtitle="Prioritize features based on votes, comments, and custom fields">
       <div className="mb-4">
         <h2 className="text-display">Score Formula Weights</h2>
-        <p className="text-muted mb-2">
-          Configure how each factor contributes to the overall score. Score = Σ (weight × value) for each factor.
-        </p>
+        <p className="text-muted mb-2">Configure how each factor contributes to the overall score. Score = Σ (weight × value) for each factor.</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
           <label style={{ display: "flex", flexDirection: "column", fontSize: "0.875rem" }}>
             Votes
@@ -186,7 +184,8 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
               </th>
               {customFieldKeys.map((key) => (
                 <th key={key} style={{ padding: "8px", cursor: "pointer", textAlign: "right", whiteSpace: "nowrap" }} onClick={() => handleSort(key)}>
-                  Σ {key}{sortIndicator(key)}
+                  Σ {key}
+                  {sortIndicator(key)}
                 </th>
               ))}
               <th style={{ padding: "8px", cursor: "pointer", textAlign: "right", whiteSpace: "nowrap" }} onClick={() => handleSort("score")}>
@@ -207,7 +206,7 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
                 <td style={{ padding: "8px", textAlign: "right" }}>{post.commentsCount}</td>
                 {customFieldKeys.map((key) => (
                   <td key={key} style={{ padding: "8px", textAlign: "right" }}>
-                    {post.customFieldSums[key] != null ? post.customFieldSums[key] : 0}
+                    {post.customFieldSums[key] ?? 0}
                   </td>
                 ))}
                 <td style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>{post.score}</td>
