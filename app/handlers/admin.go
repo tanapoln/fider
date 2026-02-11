@@ -199,6 +199,24 @@ func ManageAuthentication() web.HandlerFunc {
 	}
 }
 
+// FeatureRanking is the page used by administrators to view feature ranking based on votes, comments, and custom fields
+func FeatureRanking() web.HandlerFunc {
+	return func(c *web.Context) error {
+		rankingQuery := &query.GetPostsRanking{}
+		if err := bus.Dispatch(c, rankingQuery); err != nil {
+			return c.Failure(err)
+		}
+
+		return c.Page(http.StatusOK, web.Props{
+			Page:  "Administration/pages/FeatureRanking.page",
+			Title: "Feature Ranking · Site Settings",
+			Data: web.Map{
+				"posts": rankingQuery.Result,
+			},
+		})
+	}
+}
+
 // GetOAuthConfig returns OAuth config based on given provider
 func GetOAuthConfig() web.HandlerFunc {
 	return func(c *web.Context) error {

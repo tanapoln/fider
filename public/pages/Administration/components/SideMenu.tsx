@@ -51,6 +51,7 @@ export const SideMenu = (props: SiteMenuProps) => {
           <>
             {fider.settings.isBillingEnabled && <SideMenuItem name="billing" title="Billing" href="/admin/billing" isActive={activeItem === "billing"} />}
             <SideMenuItem name="webhooks" title="Webhooks" href="/admin/webhooks" isActive={activeItem === "webhooks"} />
+            <SideMenuItem name="ranking" title="Ranking" href="/admin/ranking" isActive={activeItem === "ranking"} />
             <SideMenuItem name="export" title="Export" href="/admin/export" isActive={activeItem === "export"} />
           </>
         )}

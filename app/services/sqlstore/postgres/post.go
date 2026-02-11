@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -504,6 +505,91 @@ func getAllPosts(ctx context.Context, q *query.GetAllPosts) error {
 			return errors.Wrap(err, "failed to get all posts")
 		}
 		q.Result = searchQuery.Result
+		return nil
+	})
+}
+
+func getPostsRanking(ctx context.Context, q *query.GetPostsRanking) error {
+	return using(ctx, func(trx *dbx.Trx, tenant *entity.Tenant, user *entity.User) error {
+		type dbRankedPost struct {
+			ID              int    `db:"id"`
+			Number          int    `db:"number"`
+			Title           string `db:"title"`
+			Slug            string `db:"slug"`
+			Status          int    `db:"status"`
+			VotesCount      int    `db:"votes_count"`
+			CommentsCount   int    `db:"comments_count"`
+			CustomFieldSums string `db:"custom_field_sums"`
+		}
+
+		var posts []*dbRankedPost
+		err := trx.Select(&posts, `
+			WITH agg_votes AS (
+				SELECT post_id, COUNT(DISTINCT user_id) AS cnt
+				FROM post_votes
+				WHERE tenant_id = $1
+				GROUP BY post_id
+			),
+			agg_comments AS (
+				SELECT c.post_id, COUNT(*) AS cnt
+				FROM comments c
+				WHERE c.tenant_id = $1 AND c.deleted_at IS NULL AND c.is_approved = true
+				GROUP BY c.post_id
+			),
+			agg_custom_fields AS (
+				SELECT pv.post_id, cf.key, SUM(DISTINCT (cf.value)::numeric) AS sum_val
+				FROM (SELECT DISTINCT post_id, user_id, tenant_id FROM post_votes WHERE tenant_id = $1) pv
+				INNER JOIN users u ON u.id = pv.user_id AND u.tenant_id = pv.tenant_id
+				CROSS JOIN LATERAL jsonb_each_text(COALESCE(u.custom_fields, '{}'::jsonb)) AS cf(key, value)
+				WHERE cf.value ~ '^-?[0-9]+\.?[0-9]*$'
+				GROUP BY pv.post_id, cf.key
+			),
+			agg_custom_json AS (
+				SELECT post_id, json_object_agg(key, sum_val) AS sums
+				FROM agg_custom_fields
+				GROUP BY post_id
+			)
+			SELECT
+				p.id,
+				p.number,
+				p.title,
+				p.slug,
+				p.status,
+				COALESCE(av.cnt, 0) AS votes_count,
+				COALESCE(ac.cnt, 0) AS comments_count,
+				COALESCE(acj.sums::text, '{}') AS custom_field_sums
+			FROM posts p
+			LEFT JOIN agg_votes av ON av.post_id = p.id
+			LEFT JOIN agg_comments ac ON ac.post_id = p.id
+			LEFT JOIN agg_custom_json acj ON acj.post_id = p.id
+			WHERE p.tenant_id = $1
+			AND p.status != `+strconv.Itoa(int(enum.PostDeleted))+`
+			ORDER BY votes_count DESC, comments_count DESC
+		`, tenant.ID)
+		if err != nil {
+			return errors.Wrap(err, "failed to get posts ranking")
+		}
+
+		q.Result = make([]*entity.RankedPost, len(posts))
+		for i, post := range posts {
+			customFieldSums := make(map[string]float64)
+			if post.CustomFieldSums != "" && post.CustomFieldSums != "{}" {
+				var raw map[string]float64
+				if jsonErr := json.Unmarshal([]byte(post.CustomFieldSums), &raw); jsonErr == nil {
+					customFieldSums = raw
+				}
+			}
+			q.Result[i] = &entity.RankedPost{
+				ID:              post.ID,
+				Number:          post.Number,
+				Title:           post.Title,
+				Slug:            post.Slug,
+				Status:          enum.PostStatus(post.Status),
+				VotesCount:      post.VotesCount,
+				CommentsCount:   post.CommentsCount,
+				CustomFieldSums: customFieldSums,
+			}
+		}
 		return nil
 	})
 }
