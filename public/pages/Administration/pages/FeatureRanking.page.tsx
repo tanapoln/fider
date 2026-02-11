@@ -1,5 +1,5 @@
 import { PostStatus } from "@fider/models"
-import { compile, EvalFunction } from "mathjs"
+import { compile } from "mathjs"
 import React, { useMemo, useState } from "react"
 import { AdminPageContainer } from "../components/AdminBasePage"
 
@@ -21,14 +21,30 @@ interface FeatureRankingPageProps {
 type SortField = "title" | "votesCount" | "commentsCount" | "score" | string
 type SortDir = "asc" | "desc"
 
+// Normalize a custom field key to a safe mathjs identifier (letters, digits, underscores)
+const normalizeKey = (key: string): string => {
+  const normalized = key
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/^([0-9])/, "_$1")
+  return normalized || "field"
+}
+
+const getInitialFormula = (): string => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("featureRankingFormula") || "votes + comments"
+  }
+  return "votes + comments"
+}
+
 const FeatureRankingPage = (props: FeatureRankingPageProps) => {
   const [sortField, setSortField] = useState<SortField>("score")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
-  const [formula, setFormula] = useState<string>(localStorage.getItem("featureRankingFormula") || "votes + comments")
-  const [error, setError] = useState<string>("")
+  const [formula, setFormula] = useState<string>(getInitialFormula)
 
-  // Collect all unique custom field keys from posts
-  const customFieldKeys = useMemo(() => {
+  // Collect all unique custom field keys and build a mapping from original key to normalized identifier
+  const { customFieldKeys, keyToIdentifier } = useMemo(() => {
     const keys = new Set<string>()
     for (const post of props.posts) {
       if (post.customFieldSums) {
@@ -37,52 +53,46 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
         }
       }
     }
-    return Array.from(keys).sort()
+    const sorted = Array.from(keys).sort()
+    const mapping: Record<string, string> = {}
+    for (const key of sorted) {
+      mapping[key] = normalizeKey(key)
+    }
+    return { customFieldKeys: sorted, keyToIdentifier: mapping }
   }, [props.posts])
 
-  const computeFormulaScore = (comp: EvalFunction, post: RankedPost): number => {
-    const obj = {
-      votes: post.votesCount,
-      comments: post.commentsCount,
-      ...post.customFieldSums,
-    }
-
+  // Compute sorted posts and any formula error as pure derived data (no setState in useMemo)
+  const { sortedPosts, formulaError } = useMemo(() => {
+    let error = ""
+    let compiledExpr: ReturnType<typeof compile> | undefined
     try {
-      return comp.evaluate(obj)
+      compiledExpr = compile(formula)
     } catch (e) {
-      setError(`Error in formula: ${e}`)
-      return 0
+      error = `Invalid formula: ${e}`
     }
-  }
 
-  const handleFormulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    localStorage.setItem("featureRankingFormula", e.target.value)
-    setFormula(e.target.value)
-  }
+    const withScores = props.posts.map((post) => {
+      let score = 0
+      if (compiledExpr && !error) {
+        const scope: Record<string, number> = {
+          votes: post.votesCount,
+          comments: post.commentsCount,
+        }
+        // Use normalized keys in scope
+        for (const [origKey, normKey] of Object.entries(keyToIdentifier)) {
+          scope[normKey] = post.customFieldSums[origKey] ?? 0
+        }
+        try {
+          score = compiledExpr.evaluate(scope)
+        } catch (e) {
+          error = `Error evaluating formula: ${e}`
+          score = 0
+        }
+      }
+      return { ...post, score }
+    })
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc")
-    } else {
-      setSortField(field)
-      setSortDir("desc")
-    }
-  }
-
-  const sortedPosts = useMemo(() => {
-    setError("")
-    let comp: EvalFunction | undefined
-    try {
-      comp = compile(formula)
-    } catch (e) {
-      setError(`Error in formula: ${e}`)
-    }
-    const withScores = props.posts.map((post) => ({
-      ...post,
-      score: comp ? computeFormulaScore(comp, post) : 0,
-    }))
-
-    return withScores.sort((a, b) => {
+    const sorted = withScores.sort((a, b) => {
       let valA: string | number
       let valB: string | number
 
@@ -99,15 +109,33 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
         valA = a.commentsCount
         valB = b.commentsCount
       } else {
-        valA = a.customFieldSums[sortField] || 0
-        valB = b.customFieldSums[sortField] || 0
+        valA = a.customFieldSums[sortField] ?? 0
+        valB = b.customFieldSums[sortField] ?? 0
       }
 
       if (valA < valB) return sortDir === "asc" ? -1 : 1
       if (valA > valB) return sortDir === "asc" ? 1 : -1
       return 0
     })
-  }, [props.posts, sortField, sortDir, customFieldKeys, formula])
+
+    return { sortedPosts: sorted, formulaError: error }
+  }, [props.posts, sortField, sortDir, keyToIdentifier, formula])
+
+  const handleFormulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("featureRankingFormula", e.target.value)
+    }
+    setFormula(e.target.value)
+  }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDir("desc")
+    }
+  }
 
   const sortIndicator = (field: string) => {
     if (sortField !== field) return ""
@@ -122,13 +150,14 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
     }
   }
 
+  // Build list of available identifiers for the formula
+  const availableIdentifiers = ["votes", "comments", ...Object.values(keyToIdentifier)]
+
   return (
     <AdminPageContainer id="p-admin-ranking" name="ranking" title="Feature Ranking" subtitle="Prioritize features based on votes, comments, and custom fields">
       <div className="mb-4">
-        <h2 className="text-display">Score Formula Weights</h2>
-        <p className="text-muted mb-2">
-          Configure how each factor contributes to the overall score. Use `votes`, `comments`, and custom fields name to create math formula.
-        </p>
+        <h2 className="text-display">Score Formula</h2>
+        <p className="text-muted mb-2">Enter a math expression to compute the score for each post.</p>
         <div>
           <label style={{ display: "flex", flexDirection: "column", fontSize: "0.875rem" }}>
             <span>
@@ -140,13 +169,25 @@ const FeatureRankingPage = (props: FeatureRankingPageProps) => {
               style={{
                 width: "500px",
                 padding: "4px 8px",
-                border: error ? "1px solid var(--colors-red-500)" : "1px solid var(--colors-gray-300)",
+                border: formulaError ? "1px solid var(--colors-red-500)" : "1px solid var(--colors-gray-300)",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
               }}
             />
           </label>
-          {error && <p style={{ color: "var(--colors-red-500)", marginTop: "4px", fontSize: "0.875rem" }}>{error}</p>}
+          {formulaError && <p style={{ color: "var(--colors-red-500)", marginTop: "4px", fontSize: "0.875rem" }}>{formulaError}</p>}
+          <p style={{ color: "var(--colors-gray-500)", marginTop: "4px", fontSize: "0.8rem" }}>
+            Available identifiers: <code>{availableIdentifiers.join(", ")}</code>
+          </p>
+          {customFieldKeys.some((key) => key !== keyToIdentifier[key]) && (
+            <p style={{ color: "var(--colors-gray-500)", marginTop: "2px", fontSize: "0.8rem" }}>
+              Custom field mapping:{" "}
+              {customFieldKeys
+                .filter((key) => key !== keyToIdentifier[key])
+                .map((key) => `"${key}" → ${keyToIdentifier[key]}`)
+                .join(", ")}
+            </p>
+          )}
         </div>
       </div>
 
