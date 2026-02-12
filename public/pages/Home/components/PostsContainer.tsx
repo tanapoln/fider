@@ -57,7 +57,7 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
         myPosts: querystring.get("myposts") === "true",
         noTags: querystring.get("notags") === "true",
         votedByUser:
-          querystring.get("votedby") && querystring.get("votedbyname")
+          querystring.get("votedby") && querystring.get("votedbyname") && !isNaN(parseInt(querystring.get("votedby"), 10))
             ? { id: parseInt(querystring.get("votedby"), 10), name: querystring.get("votedbyname") }
             : undefined,
       },

@@ -473,8 +473,13 @@ func searchPosts(ctx context.Context, q *query.SearchPosts) error {
 				condition += " AND user_id = " + strconv.Itoa(user.ID)
 			}
 
+			params := []interface{}{tenant.ID, pq.Array(statuses)}
+			if len(q.Tags) > 0 {
+				params = append(params, pq.Array(q.Tags))
+			}
 			if q.VotedByUserID > 0 {
-				condition += " AND EXISTS (SELECT 1 FROM post_votes WHERE post_id = q.id AND user_id = " + strconv.Itoa(q.VotedByUserID) + ")"
+				params = append(params, q.VotedByUserID)
+				condition += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM post_votes WHERE post_id = q.id AND user_id = $%d)", len(params))
 			}
 
 			sql := fmt.Sprintf(`
@@ -483,10 +488,6 @@ func searchPosts(ctx context.Context, q *query.SearchPosts) error {
 				ORDER BY %s DESC
 				LIMIT %s
 			`, innerQuery, condition, sort, q.Limit)
-			params := []interface{}{tenant.ID, pq.Array(statuses)}
-			if len(q.Tags) > 0 {
-				params = append(params, pq.Array(q.Tags))
-			}
 			err = trx.Select(&posts, sql, params...)
 		}
 
