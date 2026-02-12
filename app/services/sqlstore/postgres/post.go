@@ -479,7 +479,7 @@ func searchPosts(ctx context.Context, q *query.SearchPosts) error {
 			}
 			if q.VotedByUserID > 0 {
 				params = append(params, q.VotedByUserID)
-				condition += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM post_votes WHERE post_id = q.id AND user_id = $%d)", len(params))
+				condition += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM post_votes WHERE tenant_id = q.tenant_id AND post_id = q.id AND user_id = $%d)", len(params))
 			}
 
 			sql := fmt.Sprintf(`
