@@ -85,11 +85,18 @@ export const PostFilter = (props: PostFilterProps) => {
     if (!isCollaborator) return
 
     setIsSearchingUsers(true)
-    const result = await http.get<{ users: User[] }>(`/api/v1/users?query=${encodeURIComponent(q)}&limit=5`)
-    if (result.ok) {
-      setUserResults(result.data.users)
+    try {
+      const result = await http.get<{ users: User[] }>(`/api/v1/users?query=${encodeURIComponent(q)}&limit=5`)
+      if (result.ok) {
+        setUserResults(result.data.users)
+      } else {
+        setUserResults([])
+      }
+    } catch (error) {
+      setUserResults([])
+    } finally {
+      setIsSearchingUsers(false)
     }
-    setIsSearchingUsers(false)
   }
 
   const handleChangeFilter = (item: OptionItem) => () => {
