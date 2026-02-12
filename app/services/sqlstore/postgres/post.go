@@ -473,6 +473,10 @@ func searchPosts(ctx context.Context, q *query.SearchPosts) error {
 				condition += " AND user_id = " + strconv.Itoa(user.ID)
 			}
 
+			if q.VotedByUserID > 0 {
+				condition += " AND EXISTS (SELECT 1 FROM post_votes WHERE post_id = q.id AND user_id = " + strconv.Itoa(q.VotedByUserID) + ")"
+			}
+
 			sql := fmt.Sprintf(`
 				SELECT * FROM (%s) AS q
 				WHERE 1 = 1 %s

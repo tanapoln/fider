@@ -19,6 +19,7 @@ export interface SearchPostsParams {
   myPosts?: boolean
   statuses?: string[]
   moderation?: string
+  votedBy?: number
 }
 
 export const searchPosts = async (params: SearchPostsParams): Promise<Result<Post[]>> => {
@@ -38,6 +39,9 @@ export const searchPosts = async (params: SearchPostsParams): Promise<Result<Pos
   }
   if (params.myPosts) {
     qsParams += `&myposts=true`
+  }
+  if (params.votedBy) {
+    qsParams += `&votedby=${params.votedBy}`
   }
   return await http.get<Post[]>(`/api/v1/posts${qsParams}`)
 }

@@ -36,6 +36,13 @@ func SearchPosts() web.HandlerFunc {
 		if myPostsOnly, err := c.QueryParamAsBool("myposts"); err == nil {
 			searchPosts.MyPostsOnly = myPostsOnly
 		}
+		// Only collaborators and admins can filter by a specific user's votes
+		if votedBy, err := c.QueryParamAsInt("votedby"); err == nil && votedBy > 0 {
+			user := c.User()
+			if user != nil && user.IsCollaborator() {
+				searchPosts.VotedByUserID = votedBy
+			}
+		}
 		searchPosts.SetStatusesFromStrings(c.QueryParamAsArray("statuses"))
 
 		if err := bus.Dispatch(c, searchPosts); err != nil {

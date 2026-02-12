@@ -36,6 +36,7 @@ export interface FilterState {
   myVotes: boolean
   myPosts: boolean
   noTags: boolean
+  votedByUser?: { id: number; name: string }
 }
 
 export class PostsContainer extends React.Component<PostsContainerProps, PostsContainerState> {
@@ -55,6 +56,10 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
         myVotes: querystring.get("myvotes") === "true",
         myPosts: querystring.get("myposts") === "true",
         noTags: querystring.get("notags") === "true",
+        votedByUser:
+          querystring.get("votedby") && querystring.get("votedbyname")
+            ? { id: parseInt(querystring.get("votedby"), 10), name: querystring.get("votedbyname") }
+            : undefined,
       },
       limit: querystring.getNumber("limit"),
     }
@@ -70,6 +75,8 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
           myvotes: this.state.filterState.myVotes ? "true" : undefined,
           myposts: this.state.filterState.myPosts ? "true" : undefined,
           notags: this.state.filterState.noTags ? "true" : undefined,
+          votedby: this.state.filterState.votedByUser ? this.state.filterState.votedByUser.id : undefined,
+          votedbyname: this.state.filterState.votedByUser ? this.state.filterState.votedByUser.name : undefined,
           query,
           view: this.state.view,
           limit: this.state.limit,
@@ -85,6 +92,7 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
         this.state.filterState.myVotes,
         this.state.filterState.myPosts,
         this.state.filterState.noTags,
+        this.state.filterState.votedByUser,
         reset
       )
     })
@@ -100,6 +108,7 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
     myVotes: boolean,
     myPosts: boolean,
     noTags: boolean,
+    votedByUser: { id: number; name: string } | undefined,
     reset: boolean
   ) {
     window.clearTimeout(this.timer)
@@ -115,11 +124,13 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
         moderation = "pending"
       }
 
-      actions.searchPosts({ query, view: view, limit, tags, statuses: actualStatuses, myVotes, myPosts, noTags, moderation }).then((response) => {
-        if (response.ok && this.state.loading) {
-          this.setState({ loading: false, posts: response.data })
-        }
-      })
+      actions
+        .searchPosts({ query, view: view, limit, tags, statuses: actualStatuses, myVotes, myPosts, noTags, moderation, votedBy: votedByUser?.id })
+        .then((response) => {
+          if (response.ok && this.state.loading) {
+            this.setState({ loading: false, posts: response.data })
+          }
+        })
     }, 500)
   }
 
