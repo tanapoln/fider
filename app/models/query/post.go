@@ -42,6 +42,7 @@ type SearchPosts struct {
 	MyVotesOnly      bool
 	NoTagsOnly       bool
 	MyPostsOnly      bool
+	VotedByUserID    int // Filter by votes of a specific user (collaborator/admin only)
 	ModerationFilter string // "pending", "approved", or empty (all)
 
 	Result []*entity.Post

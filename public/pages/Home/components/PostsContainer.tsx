@@ -36,6 +36,7 @@ export interface FilterState {
   myVotes: boolean
   myPosts: boolean
   noTags: boolean
+  votedByUserId?: number
 }
 
 export class PostsContainer extends React.Component<PostsContainerProps, PostsContainerState> {
@@ -85,6 +86,7 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
         this.state.filterState.myVotes,
         this.state.filterState.myPosts,
         this.state.filterState.noTags,
+        this.state.filterState.votedByUserId,
         reset
       )
     })
@@ -100,6 +102,7 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
     myVotes: boolean,
     myPosts: boolean,
     noTags: boolean,
+    votedByUserId: number | undefined,
     reset: boolean
   ) {
     window.clearTimeout(this.timer)
@@ -115,11 +118,13 @@ export class PostsContainer extends React.Component<PostsContainerProps, PostsCo
         moderation = "pending"
       }
 
-      actions.searchPosts({ query, view: view, limit, tags, statuses: actualStatuses, myVotes, myPosts, noTags, moderation }).then((response) => {
-        if (response.ok && this.state.loading) {
-          this.setState({ loading: false, posts: response.data })
-        }
-      })
+      actions
+        .searchPosts({ query, view: view, limit, tags, statuses: actualStatuses, myVotes, myPosts, noTags, moderation, votedBy: votedByUserId })
+        .then((response) => {
+          if (response.ok && this.state.loading) {
+            this.setState({ loading: false, posts: response.data })
+          }
+        })
     }, 500)
   }
 

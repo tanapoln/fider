@@ -1,10 +1,12 @@
-import React, { useState } from "react"
-import { PostStatus, Tag } from "@fider/models"
-import { Checkbox, Dropdown, Icon } from "@fider/components"
-import { HStack } from "@fider/components/layout"
 import HeroIconFilter from "@fider/assets/images/heroicons-filter.svg"
+import IconX from "@fider/assets/images/heroicons-x.svg"
+import { Avatar, Checkbox, Dropdown, Icon, UserName } from "@fider/components"
+import { HStack } from "@fider/components/layout"
 import { useFider } from "@fider/hooks"
+import { PostStatus, Tag, User } from "@fider/models"
+import { http } from "@fider/services"
 import { i18n } from "@lingui/core"
+import React, { useState } from "react"
 import { FilterState } from "./PostsContainer"
 
 import "./PostFilter.scss"
@@ -73,6 +75,29 @@ export const PostFilter = (props: PostFilterProps) => {
 
   const filterItems: FilterItem[] = FilterStateToFilterItems(props.activeFilter)
   const [query, setQuery] = useState("")
+  const [userResults, setUserResults] = useState<User[]>([])
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+
+  const isCollaborator = fider.session.isAuthenticated && fider.session.user.isCollaborator
+
+  const searchUsers = async (q: string) => {
+    if (!isCollaborator) return
+
+    setIsSearchingUsers(true)
+    try {
+      const result = await http.get<{ users: User[] }>(`/api/v1/users?query=${encodeURIComponent(q)}&limit=5`)
+      if (result.ok) {
+        setUserResults(result.data.users)
+      } else {
+        setUserResults([])
+      }
+    } catch (error) {
+      setUserResults([])
+    } finally {
+      setIsSearchingUsers(false)
+    }
+  }
 
   const handleChangeFilter = (item: OptionItem) => () => {
     const exists = filterItems.find((i) => i.type === item.type && i.value === item.value)
@@ -83,6 +108,22 @@ export const PostFilter = (props: PostFilterProps) => {
     props.filtersChanged(FilterItemsToFilterState(newFilter))
     setQuery("")
   }
+
+  const handleSelectVotedByUser = (user: User) => () => {
+    const currentState = FilterItemsToFilterState(filterItems)
+    currentState.votedByUserId = user.id
+    props.filtersChanged(currentState)
+    setUserResults([])
+    setSelectedUser(user)
+  }
+
+  const handleClearVotedByUser = () => {
+    const currentState = FilterItemsToFilterState(filterItems)
+    currentState.votedByUserId = undefined
+    props.filtersChanged(currentState)
+    setSelectedUser(null)
+  }
+
   const options: OptionItem[] = []
 
   if (fider.session.isAuthenticated) {
@@ -125,7 +166,7 @@ export const PostFilter = (props: PostFilterProps) => {
     })
   }
 
-  const filterCount = filterItems.length
+  const filterCount = filterItems.length + (props.activeFilter.votedByUserId ? 1 : 0)
   const filteredOptions = options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()))
 
   const FilterGroupSection = ({ title, type }: { title: string; type: string[] }) => {
@@ -156,10 +197,50 @@ export const PostFilter = (props: PostFilterProps) => {
     )
   }
 
+  const UserVotesSection = () => {
+    return (
+      <>
+        <div className="p-2 text-medium uppercase">{i18n._({ id: "home.postfilter.label.uservotes", message: "By User's Votes" })}</div>
+        {props.activeFilter.votedByUserId && selectedUser && (
+          <Dropdown.ListItem onClick={handleClearVotedByUser}>
+            <HStack spacing={2}>
+              <HStack spacing={2}>
+                <Avatar user={selectedUser} />
+                <UserName user={selectedUser} />
+              </HStack>
+              <Icon sprite={IconX} className="h-4" />
+            </HStack>
+          </Dropdown.ListItem>
+        )}
+        {!props.activeFilter.votedByUserId && (
+          <>
+            {isSearchingUsers && <div className="px-2 py-1 text-muted text-xs">...</div>}
+            {!isSearchingUsers &&
+              userResults.map((user) => (
+                <Dropdown.ListItem key={user.id} onClick={handleSelectVotedByUser(user)}>
+                  <HStack spacing={2}>
+                    <Avatar user={user} />
+                    <UserName user={user} />
+                  </HStack>
+                </Dropdown.ListItem>
+              ))}
+            {!isSearchingUsers && query.length > 0 && userResults.length === 0 && (
+              <div className="px-2 py-1 text-muted text-xs">{i18n._({ id: "home.postfilter.uservotes.noresults", message: "No users found" })}</div>
+            )}
+          </>
+        )}
+      </>
+    )
+  }
+
   return (
     <HStack className="mr-4">
       <Dropdown
-        onToggled={() => setQuery("")}
+        onToggled={() => {
+          setQuery("")
+          setUserResults([])
+          searchUsers("")
+        }}
         renderHandle={
           <HStack className="c-post-filter-btn">
             <Icon sprite={HeroIconFilter} className="h-5 pr-1" />
@@ -171,7 +252,10 @@ export const PostFilter = (props: PostFilterProps) => {
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            searchUsers(e.target.value)
+          }}
           className="c-input filter-input"
           placeholder={i18n._({ id: "home.filter.search.label", message: "Search in filters..." })}
         />
@@ -181,6 +265,8 @@ export const PostFilter = (props: PostFilterProps) => {
         <FilterGroupSection title={i18n._({ id: "home.postfilter.label.status", message: "Status" })} type={["status"]} />
 
         <FilterGroupSection title={i18n._({ id: "label.tags", message: "Tags" })} type={["noTags", "tag"]} />
+
+        {isCollaborator && <UserVotesSection />}
       </Dropdown>
     </HStack>
   )
