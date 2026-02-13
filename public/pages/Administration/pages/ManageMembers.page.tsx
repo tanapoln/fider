@@ -118,9 +118,7 @@ const CustomFieldsModal = (props: CustomFieldsModalProps) => {
       </Modal.Header>
       <Modal.Content>
         {error && <div className="text-red-700 mb-2 text-xs">{error}</div>}
-        <div className="mb-2 text-muted text-xs">
-          Values are auto-detected as number, boolean (true/false), or string. Leave value empty for null.
-        </div>
+        <div className="mb-2 text-muted text-xs">Values are auto-detected as number, boolean (true/false), or string. Leave value empty for null.</div>
         {fields.map((field, index) => (
           <div key={index} className="flex gap-2 mb-2 flex-items-center">
             <input
@@ -500,12 +498,7 @@ export default function ManageMembersPage(props: ManageMembersPageProps) {
       </ul>
 
       {customFieldsUser && (
-        <CustomFieldsModal
-          user={customFieldsUser}
-          isOpen={!!customFieldsUser}
-          onClose={() => setCustomFieldsUser(null)}
-          onSave={handleSaveCustomFields}
-        />
+        <CustomFieldsModal user={customFieldsUser} isOpen={!!customFieldsUser} onClose={() => setCustomFieldsUser(null)} onSave={handleSaveCustomFields} />
       )}
     </AdminPageContainer>
   )
