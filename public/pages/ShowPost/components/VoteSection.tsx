@@ -40,7 +40,7 @@ export const VoteSection = (props: VoteSectionProps) => {
   const status = PostStatus.Get(props.post.status)
   const isDisabled = status.closed || fider.isReadOnly
 
-  const buttonText = hasVoted ? <Trans id="action.voted">Voted!</Trans> : <Trans id="action.vote">Vote for this idea</Trans>
+  const buttonText = hasVoted ? <Trans id="action.voted">Voted!</Trans> : <Trans id="action.vote.action">Vote</Trans>
   const icon = hasVoted ? IconCheck : IconThumbsUp
 
   return (

@@ -120,7 +120,7 @@ export const VoteOnBehalfModal: React.FC<VoteOnBehalfModalProps> = (props) => {
                   </span>
                 ) : (
                   <Button variant="secondary" size="small" onClick={() => handleVote(user)} disabled={votingUserID === user.id}>
-                    <Trans id="action.vote">Vote</Trans>
+                    <Trans id="action.vote">Vote for this idea</Trans>
                   </Button>
                 )}
               </HStack>
