@@ -21,7 +21,7 @@ func TestUserWithEmail_MarshalJSON(t *testing.T) {
 		},
 	}
 
-	expectedJSON := `{"id":1,"name":"John Doe","role":"visitor","status":"active","isTrusted":false,"email":"johndoe@example.com"}`
+	expectedJSON := `{"id":1,"name":"John Doe","role":"visitor","status":"active","isTrusted":false,"email":"johndoe@example.com","customFields":null}`
 
 	jsonData, err := json.Marshal(user)
 	if err != nil {
